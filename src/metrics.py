@@ -1,13 +1,34 @@
 """
 Problem and architecture performance metrics evaluation.
+Provides mathematically rigorous definitions for:
+- Quantum State Fidelity (pure statevector / density matrix overlap)
+- Physical Observable Expectation Values and Statistical Standard Errors
+- Classical Measurement Distribution Similarity (Bhattacharyya coefficient)
+- Total Variation Distance (TVD)
 """
 
 import math
 from typing import Dict, Any, List, Tuple
 import numpy as np
+from qiskit.quantum_info import state_fidelity, Statevector, DensityMatrix
 
 
-def compute_magnetization_from_counts(counts: Dict[str, int], num_spins: int) -> Tuple[float, float]:
+def compute_quantum_state_fidelity(
+    state_a: Statevector | DensityMatrix,
+    state_b: Statevector | DensityMatrix
+) -> float:
+    """
+    Compute true Quantum State Fidelity between two quantum states:
+    F(rho, sigma) = (Tr[ sqrt( sqrt(rho) sigma sqrt(rho) ) ])^2
+    For pure states: F(|psi>, |phi>) = |<psi|phi>|^2.
+    """
+    return float(state_fidelity(state_a, state_b))
+
+
+def compute_magnetization_from_counts(
+    counts: Dict[str, int],
+    num_spins: int
+) -> Tuple[float, float]:
     """
     Compute average Z-magnetization <M_z> = (1/N) * sum_i <Z_i> from bitstring counts.
     Returns:
@@ -21,9 +42,8 @@ def compute_magnetization_from_counts(counts: Dict[str, int], num_spins: int) ->
     # Qiskit bitstring convention: 'b_{N-1}...b_0'
     m_values = []
     for bitstr, cnt in counts.items():
-        # Spin Z value: '0' -> +1, '1' -> -1
-        # Strip potential spaces
         clean_str = bitstr.replace(" ", "")
+        # Spin Z eigenvalue: '0' -> +1, '1' -> -1
         z_vals = [1.0 if char == "0" else -1.0 for char in clean_str[-num_spins:]]
         avg_z = np.mean(z_vals)
         m_values.extend([avg_z] * cnt)
@@ -36,13 +56,16 @@ def compute_magnetization_from_counts(counts: Dict[str, int], num_spins: int) ->
 
 def compute_tvd(counts_p: Dict[str, int], counts_q: Dict[str, int]) -> float:
     """
-    Compute Total Variation Distance between two count distributions:
+    Compute Total Variation Distance between two empirical probability distributions:
     TVD(P, Q) = 0.5 * sum_x |P(x) - Q(x)|
+    Bounded in [0, 1].
     """
     shots_p = sum(counts_p.values())
     shots_q = sum(counts_q.values())
-    all_keys = set(counts_p.keys()) | set(counts_q.keys())
+    if shots_p == 0 or shots_q == 0:
+        return 1.0
 
+    all_keys = set(counts_p.keys()) | set(counts_q.keys())
     tvd = 0.0
     for k in all_keys:
         prob_p = counts_p.get(k, 0) / shots_p
@@ -51,15 +74,22 @@ def compute_tvd(counts_p: Dict[str, int], counts_q: Dict[str, int]) -> float:
     return float(0.5 * tvd)
 
 
-def compute_classical_fidelity(counts_noisy: Dict[str, int], counts_ideal: Dict[str, int]) -> float:
+def compute_classical_distribution_fidelity(
+    counts_noisy: Dict[str, int],
+    counts_ideal: Dict[str, int]
+) -> float:
     """
-    Compute Bhattacharyya / Classical Fidelity between noisy and ideal probability distributions:
+    Compute Classical Distribution Fidelity (Bhattacharyya coefficient):
     F_c(P, Q) = sum_x sqrt(P(x) * Q(x))
+    NOTE: This is a classical distribution similarity metric for measurement outcomes,
+    NOT quantum state fidelity |<psi|phi>|^2.
     """
     shots_n = sum(counts_noisy.values())
     shots_i = sum(counts_ideal.values())
-    all_keys = set(counts_noisy.keys()) | set(counts_ideal.keys())
+    if shots_n == 0 or shots_i == 0:
+        return 0.0
 
+    all_keys = set(counts_noisy.keys()) | set(counts_ideal.keys())
     bc = 0.0
     for k in all_keys:
         p_n = counts_noisy.get(k, 0) / shots_n
@@ -68,7 +98,17 @@ def compute_classical_fidelity(counts_noisy: Dict[str, int], counts_ideal: Dict[
     return float(bc)
 
 
+def compute_classical_fidelity(
+    counts_noisy: Dict[str, int],
+    counts_ideal: Dict[str, int]
+) -> float:
+    """Backward-compatible alias for compute_classical_distribution_fidelity."""
+    return compute_classical_distribution_fidelity(counts_noisy, counts_ideal)
+
+
 def compute_proportion_error(p: float, shots: int) -> float:
     """Standard error for a proportion: sqrt(p * (1 - p) / N)."""
+    if shots <= 0:
+        return 0.0
     p_clamped = max(0.0, min(1.0, p))
     return float(math.sqrt(p_clamped * (1.0 - p_clamped) / shots))

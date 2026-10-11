@@ -8,14 +8,20 @@ import scipy.linalg
 from typing import List, Tuple, Dict, Any, Optional
 
 from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
-from qiskit.quantum_info import Statevector, SparsePauliOp
+from qiskit.quantum_info import Statevector, SparsePauliOp, state_fidelity
 
 
 class TrotterSimulationModel:
     """
     1D Spin Chain Simulation under Transverse-Field Ising Model (TFIM):
-    H = - J * sum_{i} Z_i Z_{i+1} - J_cross * Z_0 Z_{N-1} - h * sum_i X_i
+    H = - J * sum_{i=0}^{N-2} Z_i Z_{i+1} - J_cross * Z_0 Z_{N-1} - h * sum_{i=0}^{N-1} X_i
+
+    Parameters:
+        num_spins: Number of physical spins in the simulation (default: 4)
+        J: Nearest-neighbor ZZ interaction coupling constant (default: 1.0)
+        h: Transverse magnetic field in X basis (default: 0.8)
+        J_cross: Cross-boundary ZZ coupling (0.0 for open chain, >0 for ring/routing study)
+        initial_state_str: Initial spin configuration bitstring (default: '1010')
     """
 
     def __init__(
@@ -45,7 +51,7 @@ class TrotterSimulationModel:
             z_term[i + 1] = "Z"
             pauli_list.append(("".join(reversed(z_term)), -self.J))
 
-        # Cross coupling (boundary condition forcing non-local routing)
+        # Cross coupling (boundary condition forcing non-local routing across processor graph)
         if self.J_cross != 0.0 and self.num_spins > 2:
             z_cross = ["I"] * self.num_spins
             z_cross[0] = "Z"
@@ -83,6 +89,17 @@ class TrotterSimulationModel:
             total_z += val
         return float(total_z / self.num_spins)
 
+    def compute_algorithmic_trotter_state_fidelity(self, t: float, num_steps: int) -> float:
+        """
+        Compute true quantum state fidelity between exact state |psi(t)> and ideal Trotter state:
+        F_alg = |<psi_exact(t) | psi_trotter_ideal(t)>|^2.
+        Measures the pure mathematical discretization error of the Trotter decomposition.
+        """
+        psi_exact = self.compute_exact_statevector(t)
+        qc_unmeas = self.build_trotter_circuit(t=t, num_steps=num_steps, measure=False)
+        psi_trotter = Statevector(qc_unmeas)
+        return float(state_fidelity(psi_exact, psi_trotter))
+
     def build_trotter_circuit(
         self,
         t: float,
@@ -92,6 +109,9 @@ class TrotterSimulationModel:
         """
         Build first-order Suzuki-Trotter circuit for duration t with num_steps:
         U(t) ~= [ U_ZZ(dt) * U_X(dt) ]^num_steps, where dt = t / num_steps.
+        Each term:
+          exp(-i (-J) dt Z_i Z_{i+1}) -> CX(i, i+1) RZ(-2 J dt) CX(i, i+1)
+          exp(-i (-h) dt X_i)         -> RX(-2 h dt)
         """
         if num_steps <= 0:
             raise ValueError("num_steps must be >= 1")
@@ -100,7 +120,6 @@ class TrotterSimulationModel:
         qc = QuantumCircuit(self.num_spins, self.num_spins if measure else 0)
 
         # State preparation
-        # initial_state_str is ordered q_{N-1}...q_0
         for idx, char in enumerate(reversed(self.initial_state_str)):
             if char == "1":
                 qc.x(idx)
@@ -109,12 +128,11 @@ class TrotterSimulationModel:
         for step in range(num_steps):
             # Nearest-neighbor ZZ interactions
             for i in range(self.num_spins - 1):
-                # exp(-i (-J) dt Z_i Z_{i+1}) -> RZZ(-2 * J * dt)
                 qc.cx(i, i + 1)
                 qc.rz(-2.0 * self.J * dt, i + 1)
                 qc.cx(i, i + 1)
 
-            # Cross-boundary ZZ interaction
+            # Cross-boundary ZZ interaction (if applicable)
             if self.J_cross != 0.0 and self.num_spins > 2:
                 qc.cx(0, self.num_spins - 1)
                 qc.rz(-2.0 * self.J_cross * dt, self.num_spins - 1)
@@ -122,7 +140,6 @@ class TrotterSimulationModel:
 
             # Single-qubit X transverse field rotations
             for i in range(self.num_spins):
-                # exp(-i (-h) dt X_i) -> RX(-2 * h * dt)
                 qc.rx(-2.0 * self.h * dt, i)
 
         if measure:

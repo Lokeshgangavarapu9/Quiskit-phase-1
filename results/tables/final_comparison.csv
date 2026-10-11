@@ -1,13 +1,16 @@
 Metric,Processor A,Processor B,Difference (B - A)
-Physical Qubits,5,7,2 qubits
-Coupling Topology,Linear Chain,Heavy-Hex Subgraph,Higher diameter vs lower degree
+Total Processor Qubit Capacity,5,7,+2 qubits capacity
+Active Physical Qubits Used,4,4,0 (Both utilize 4 active spins)
+Coupling Topology,Linear Chain (5Q),Heavy-Hex Subgraph (7Q),Branching junctions vs simple line
 Circuit Depth (n=4),111,111,0
 Circuit Depth (n=10),279,279,0
 Two-Qubit CX Gates (n=4),74,53,-21
 Two-Qubit CX Gates (n=10),194,137,-57
 Routing SWAPs (n=4),0,0,0
 Routing SWAPs (n=10),0,0,0
-Output Fidelity (n=4),0.9654,0.9766,0.0112
-Output Fidelity (n=10),0.901,0.9257,0.0247
-Optimal Trotter Step n*,1,1,Same optimal peak threshold
-Peak Output Fidelity,0.9939,0.9951,0.0012
+Algorithmic State Fidelity (n=4),0.9488,0.9488,0.0
+Algorithmic State Fidelity (n=10),0.9924,0.9924,0.0
+Classical Dist Fidelity (n=4),0.9577,0.9653,0.0076
+Classical Dist Fidelity (n=10),0.8919,0.9103,0.0184
+Optimal Step Count n*,1,1,Same optimal trade-off peak
+Peak Classical Dist Fidelity,0.9996,0.9996,0.0

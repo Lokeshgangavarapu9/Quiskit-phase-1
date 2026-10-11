@@ -76,16 +76,22 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 
 | Metric | Processor A (Line) | Processor B (Heavy-Hex) | Difference (B - A) | Architectural Impact |
 | :--- | :---: | :---: | :---: | :--- |
-| **Physical Qubits** | 5 | 7 | +2 | Higher capacity for optimal layout |
+| **Total Processor Capacity** | 5 | 7 | +2 | Register footprint |
+| **Active Physical Qubits** | 4 | 4 | 0 | Subgraph allocation |
 | **Coupling Topology** | Linear Chain | Heavy-Hex Subgraph | Higher branching | Degree-3 nodes allow compact ring mapping |
 | **Circuit Depth ($n=4$)** | 111 | 111 | 0 | Equal critical path depth |
 | **Circuit Depth ($n=10$)** | 279 | 279 | 0 | Identical depth scaling |
 | **2Q (CX) Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major reduction in two-qubit gate overhead |
 | **2Q (CX) Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Cumulative reduction in noisy gate operations |
-| **Output Fidelity ($n=4$)** | 0.9654 | **0.9766** | **+0.0112** | Higher fidelity on Processor B |
-| **Output Fidelity ($n=10$)** | 0.9010 | **0.9257** | **+0.0247** | Slower noise decay on Processor B |
-| **Total Variation Distance ($n=10$)** | 0.3633 | **0.3142** | **-0.0491** | Output distribution closer to ideal |
+| **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter discretization |
+| **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Asymptotic Trotter convergence |
+| **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Measured distribution overlap $F_c$ |
+| **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise decay on Processor B |
+| **Total Variation Distance ($n=10$)** | 0.3801 | **0.3477** | **-0.0324** | Output distribution closer to ideal |
 | **Optimal Step Threshold $n^*$** | $n=1$ | $n=1$ | 0 | Noise penalty exceeds Trotter gain beyond $n=1$ |
+
+> [!NOTE]
+> For the complete scientific audit and requirement-to-code traceability matrix, see [reports/FINAL_AUDIT.md](reports/FINAL_AUDIT.md).
 
 ### 4.2 Circuit Cost Scaling: Logical vs. Transpiled
 

@@ -116,16 +116,16 @@ def plot_ab_performance(
     """Plot Trotter fidelity trade-off: Algorithmic Error vs. Hardware Noise."""
     plt.figure(figsize=(10, 6), dpi=300)
 
-    plt.axhline(1.0, color="gray", linestyle=":", label="Exact Unitary Evolution (F=1.0)", linewidth=1.5)
-    plt.plot(steps, ideal_trotter_fidelity, "g--o", label="Ideal Trotter (Discretization Error Only)", linewidth=2.2)
-    plt.plot(steps, noisy_fidelity_a, "b-s", label="Processor A (Noisy Baseline)", linewidth=2.5)
-    plt.plot(steps, noisy_fidelity_b, "r-^", label="Processor B (Noisy Baseline)", linewidth=2.5)
+    plt.axhline(1.0, color="gray", linestyle=":", label="Exact Unitary Target (F=1.0)", linewidth=1.5)
+    plt.plot(steps, ideal_trotter_fidelity, "g--o", label="Ideal Trotter Discretization ($F_{state} = |\\langle\\psi_{exact}|\\psi_{trotter}\\rangle|^2$)", linewidth=2.2)
+    plt.plot(steps, noisy_fidelity_a, "b-s", label="Processor A (Noisy Sim — Classical Dist Fidelity $F_c$)", linewidth=2.5)
+    plt.plot(steps, noisy_fidelity_b, "r-^", label="Processor B (Noisy Sim — Classical Dist Fidelity $F_c$)", linewidth=2.5)
 
     plt.xlabel("Number of Trotter Steps (n)", fontsize=12, fontweight="bold")
-    plt.ylabel("State Fidelity / Classical Overlap", fontsize=12, fontweight="bold")
-    plt.title("Trotter Simulation Fidelity: Discretization vs. Noise Decay\n(Demonstrating Optimal Trotter Step n*)", fontsize=13, fontweight="bold", pad=12)
+    plt.ylabel("Fidelity Metric ($F_{state}$ & $F_c$)", fontsize=12, fontweight="bold")
+    plt.title("Trotter Simulation Fidelity: Discretization vs. Noise Decay\\n(Demonstrating Optimal Trotter Step n*)", fontsize=13, fontweight="bold", pad=12)
     plt.grid(True, linestyle="--", alpha=0.6)
-    plt.legend(frameon=True, fontsize=11, loc="lower left")
+    plt.legend(frameon=True, fontsize=10, loc="lower left")
 
     plt.tight_layout()
     out_file = Path(output_path)
