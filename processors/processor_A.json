@@ -1,0 +1,23 @@
+{
+  "name": "processor_A",
+  "display_name": "Processor A (5-Qubit Line Baseline)",
+  "num_qubits": 5,
+  "topology_type": "linear_chain",
+  "coupling_map": [
+    [0, 1], [1, 0],
+    [1, 2], [2, 1],
+    [2, 3], [3, 2],
+    [3, 4], [4, 3]
+  ],
+  "basis_gates": ["rz", "sx", "x", "cx"],
+  "ports": [0, 4],
+  "noise": {
+    "type": "synthetic_depolarizing",
+    "single_qubit_depolarizing_p": 0.001,
+    "two_qubit_depolarizing_p": 0.01,
+    "readout_error_matrix": [
+      [0.99, 0.01],
+      [0.02, 0.98]
+    ]
+  }
+}

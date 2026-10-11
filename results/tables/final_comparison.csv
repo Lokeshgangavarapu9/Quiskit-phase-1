@@ -1,0 +1,13 @@
+Metric,Processor A,Processor B,Difference (B - A)
+Physical Qubits,5,7,2 qubits
+Coupling Topology,Linear Chain,Heavy-Hex Subgraph,Higher diameter vs lower degree
+Circuit Depth (n=4),111,111,0
+Circuit Depth (n=10),279,279,0
+Two-Qubit CX Gates (n=4),74,53,-21
+Two-Qubit CX Gates (n=10),194,137,-57
+Routing SWAPs (n=4),0,0,0
+Routing SWAPs (n=10),0,0,0
+Output Fidelity (n=4),0.9654,0.9766,0.0112
+Output Fidelity (n=10),0.901,0.9257,0.0247
+Optimal Trotter Step n*,1,1,Same optimal peak threshold
+Peak Output Fidelity,0.9939,0.9951,0.0012

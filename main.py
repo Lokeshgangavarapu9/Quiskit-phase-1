@@ -1,0 +1,330 @@
+"""
+Qiskit Fall Fest 2026 Phase 1
+Main Benchmark Pipeline for Problem S3: Noise in Trotter Simulation
+Controlled Experiment: Processor A (5Q Line) vs Processor B (7Q Heavy-Hex)
+"""
+
+import sys
+import json
+from pathlib import Path
+import pandas as pd
+import numpy as np
+
+# Ensure UTF-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+from qiskit_aer import AerSimulator
+
+from src.processors import (
+    load_processor_config,
+    build_coupling_map,
+    build_noise_model
+)
+from src.problem import TrotterSimulationModel
+from src.transpilation import compile_for_processor, extract_circuit_metrics
+from src.metrics import (
+    compute_magnetization_from_counts,
+    compute_tvd,
+    compute_classical_fidelity,
+    compute_proportion_error
+)
+from src.visualization import (
+    plot_processor_topology,
+    plot_logical_vs_transpiled,
+    plot_ab_performance,
+    plot_architecture_tradeoffs
+)
+
+
+def run_experiment():
+    print("=" * 80)
+    print("  QISKIT FALL FEST 2026 - PHASE 1: S3 NOISE IN TROTTER SIMULATION")
+    print("  Controlled Architecture Benchmark: Processor A vs. Processor B")
+    print("=" * 80)
+
+    # 1. Directories setup
+    base_dir = Path(__file__).resolve().parent
+    results_raw_dir = base_dir / "results" / "raw"
+    results_tables_dir = base_dir / "results" / "tables"
+    results_figures_dir = base_dir / "results" / "figures"
+
+    results_raw_dir.mkdir(parents=True, exist_ok=True)
+    results_tables_dir.mkdir(parents=True, exist_ok=True)
+    results_figures_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2. Load Processors
+    proc_a_cfg = load_processor_config(base_dir / "processors" / "processor_A.json")
+    proc_b_cfg = load_processor_config(base_dir / "processors" / "processor_B.json")
+
+    cmap_a = build_coupling_map(proc_a_cfg)
+    cmap_b = build_coupling_map(proc_b_cfg)
+
+    noise_a = build_noise_model(proc_a_cfg)
+    noise_b = build_noise_model(proc_b_cfg)
+
+    print(f"Loaded {proc_a_cfg['display_name']} ({proc_a_cfg['num_qubits']} qubits)")
+    print(f"Loaded {proc_b_cfg['display_name']} ({proc_b_cfg['num_qubits']} qubits)")
+
+    # 3. Plot Topologies
+    print("\n[Step 1/5] Generating processor coupling graph figures...")
+    plot_processor_topology(proc_a_cfg, results_figures_dir / "processor_A_graph.png")
+    plot_processor_topology(proc_b_cfg, results_figures_dir / "processor_B_graph.png")
+    print("  -> Saved processor_A_graph.png and processor_B_graph.png")
+
+    # 4. Initialize Problem Model
+    num_spins = 4
+    total_time = 1.5
+    shots = 4096
+    seed = 42
+
+    print(f"\n[Step 2/5] Initializing Problem S3 Spin-Chain System:")
+    print(f"  - Number of spins: {num_spins}")
+    print(f"  - Hamiltonian: TFIM with J=1.0, h=0.8, J_cross=0.5 (periodic boundary)")
+    print(f"  - Initial state: |1010>")
+    print(f"  - Evolution time: T = {total_time}")
+    print(f"  - Measurement shots: {shots} (Seed: {seed})")
+
+    model = TrotterSimulationModel(
+        num_spins=num_spins,
+        J=1.0,
+        h=0.8,
+        J_cross=0.5,
+        initial_state_str="1010"
+    )
+
+    exact_mag = model.compute_exact_magnetization(total_time)
+    print(f"  - Exact analytical <M_z(T={total_time})> = {exact_mag:.4f}")
+
+    # Simulators
+    sim_ideal = AerSimulator(seed_simulator=seed)
+    sim_a = AerSimulator(noise_model=noise_a, seed_simulator=seed)
+    sim_b = AerSimulator(noise_model=noise_b, seed_simulator=seed)
+
+    # 5. Sweep Trotter Steps
+    trotter_steps_list = [1, 2, 3, 4, 5, 6, 8, 10]
+    records_a = []
+    records_b = []
+    raw_dumps = []
+
+    print(f"\n[Step 3/5] Executing controlled Trotter simulations over n = {trotter_steps_list}...")
+
+    for n in trotter_steps_list:
+        print(f"  --> Running Trotter step count n = {n}...")
+
+        # Build Logical Circuit
+        qc_logical = model.build_trotter_circuit(t=total_time, num_steps=n, measure=True)
+        logical_metrics = extract_circuit_metrics(qc_logical)
+
+        # Ideal Reference Run (Noise-Free)
+        res_ideal = sim_ideal.run(qc_logical, shots=shots).result()
+        counts_ideal = res_ideal.get_counts()
+        mag_ideal, _ = compute_magnetization_from_counts(counts_ideal, num_spins)
+        fidelity_ideal = compute_classical_fidelity(counts_ideal, counts_ideal)  # 1.0 baseline self
+
+        # Compile and Run on Processor A
+        compiled_a, metrics_a = compile_for_processor(
+            qc_logical,
+            coupling_map=cmap_a,
+            basis_gates=proc_a_cfg["basis_gates"],
+            optimization_level=1,
+            seed_transpiler=seed
+        )
+        res_a = sim_a.run(compiled_a, shots=shots).result()
+        counts_a = res_a.get_counts()
+        mag_a, mag_se_a = compute_magnetization_from_counts(counts_a, num_spins)
+        tvd_a = compute_tvd(counts_a, counts_ideal)
+        fid_a = compute_classical_fidelity(counts_a, counts_ideal)
+
+        # Compile and Run on Processor B
+        compiled_b, metrics_b = compile_for_processor(
+            qc_logical,
+            coupling_map=cmap_b,
+            basis_gates=proc_b_cfg["basis_gates"],
+            optimization_level=1,
+            seed_transpiler=seed
+        )
+        res_b = sim_b.run(compiled_b, shots=shots).result()
+        counts_b = res_b.get_counts()
+        mag_b, mag_se_b = compute_magnetization_from_counts(counts_b, num_spins)
+        tvd_b = compute_tvd(counts_b, counts_ideal)
+        fid_b = compute_classical_fidelity(counts_b, counts_ideal)
+
+        record_a = {
+            "num_steps": n,
+            "logical_depth": logical_metrics["depth"],
+            "logical_2q_gates": logical_metrics["two_qubit_ops"],
+            "depth_a": metrics_a["depth"],
+            "two_q_gates_a": metrics_a["two_qubit_ops"],
+            "swap_count_a": metrics_a["swap_count"],
+            "physical_qubits_a": metrics_a["num_qubits"],
+            "exact_mag": exact_mag,
+            "ideal_mag": mag_ideal,
+            "mag_a": mag_a,
+            "mag_se_a": mag_se_a,
+            "tvd_a": tvd_a,
+            "fidelity_a": fid_a
+        }
+        records_a.append(record_a)
+
+        record_b = {
+            "num_steps": n,
+            "logical_depth": logical_metrics["depth"],
+            "logical_2q_gates": logical_metrics["two_qubit_ops"],
+            "depth_b": metrics_b["depth"],
+            "two_q_gates_b": metrics_b["two_qubit_ops"],
+            "swap_count_b": metrics_b["swap_count"],
+            "physical_qubits_b": metrics_b["num_qubits"],
+            "exact_mag": exact_mag,
+            "ideal_mag": mag_ideal,
+            "mag_b": mag_b,
+            "mag_se_b": mag_se_b,
+            "tvd_b": tvd_b,
+            "fidelity_b": fid_b
+        }
+        records_b.append(record_b)
+
+        raw_dumps.append({
+            "num_steps": n,
+            "counts_ideal": counts_ideal,
+            "counts_processor_A": counts_a,
+            "counts_processor_B": counts_b,
+            "metrics_processor_A": metrics_a,
+            "metrics_processor_B": metrics_b
+        })
+
+    # 6. Save Data
+    print("\n[Step 4/5] Saving machine-readable result tables and raw data...")
+    with (results_raw_dir / "raw_experiment_data.json").open("w", encoding="utf-8") as f:
+        json.dump(raw_dumps, f, indent=2)
+
+    df_a = pd.DataFrame(records_a)
+    df_b = pd.DataFrame(records_b)
+
+    df_a.to_csv(results_tables_dir / "processor_A_metrics.csv", index=False)
+    df_b.to_csv(results_tables_dir / "processor_B_metrics.csv", index=False)
+
+    # Merged comparison table
+    comparison_records = []
+    for ra, rb in zip(records_a, records_b):
+        comparison_records.append({
+            "Trotter_Steps_n": ra["num_steps"],
+            "Logical_Depth": ra["logical_depth"],
+            "Logical_2Q_Gates": ra["logical_2q_gates"],
+            "ProcA_Depth": ra["depth_a"],
+            "ProcB_Depth": rb["depth_b"],
+            "Depth_Delta_B_minus_A": rb["depth_b"] - ra["depth_a"],
+            "ProcA_2Q_Gates": ra["two_q_gates_a"],
+            "ProcB_2Q_Gates": rb["two_q_gates_b"],
+            "2Q_Gate_Delta_B_minus_A": rb["two_q_gates_b"] - ra["two_q_gates_a"],
+            "ProcA_SWAPs": ra["swap_count_a"],
+            "ProcB_SWAPs": rb["swap_count_b"],
+            "ProcA_Magnetization": ra["mag_a"],
+            "ProcB_Magnetization": rb["mag_b"],
+            "Exact_Magnetization": exact_mag,
+            "ProcA_Fidelity": ra["fidelity_a"],
+            "ProcB_Fidelity": rb["fidelity_b"],
+            "ProcA_TVD": ra["tvd_a"],
+            "ProcB_TVD": rb["tvd_b"]
+        })
+
+    df_comp = pd.DataFrame(comparison_records)
+    df_comp.to_csv(results_tables_dir / "AB_comparison.csv", index=False)
+
+    # Final summary row (at n=4 and n=10)
+    summary_row = {
+        "Metric": [
+            "Physical Qubits",
+            "Coupling Topology",
+            "Circuit Depth (n=4)",
+            "Circuit Depth (n=10)",
+            "Two-Qubit CX Gates (n=4)",
+            "Two-Qubit CX Gates (n=10)",
+            "Routing SWAPs (n=4)",
+            "Routing SWAPs (n=10)",
+            "Output Fidelity (n=4)",
+            "Output Fidelity (n=10)",
+            "Optimal Trotter Step n*",
+            "Peak Output Fidelity"
+        ],
+        "Processor A": [
+            proc_a_cfg["num_qubits"],
+            "Linear Chain",
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcA_Depth"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcA_Depth"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcA_2Q_Gates"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcA_2Q_Gates"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcA_SWAPs"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcA_SWAPs"].values[0],
+            round(df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcA_Fidelity"].values[0], 4),
+            round(df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcA_Fidelity"].values[0], 4),
+            int(df_comp.loc[df_comp["ProcA_Fidelity"].idxmax(), "Trotter_Steps_n"]),
+            round(df_comp["ProcA_Fidelity"].max(), 4)
+        ],
+        "Processor B": [
+            proc_b_cfg["num_qubits"],
+            "Heavy-Hex Subgraph",
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcB_Depth"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcB_Depth"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcB_2Q_Gates"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcB_2Q_Gates"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcB_SWAPs"].values[0],
+            df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcB_SWAPs"].values[0],
+            round(df_comp.loc[df_comp["Trotter_Steps_n"] == 4, "ProcB_Fidelity"].values[0], 4),
+            round(df_comp.loc[df_comp["Trotter_Steps_n"] == 10, "ProcB_Fidelity"].values[0], 4),
+            int(df_comp.loc[df_comp["ProcB_Fidelity"].idxmax(), "Trotter_Steps_n"]),
+            round(df_comp["ProcB_Fidelity"].max(), 4)
+        ]
+    }
+    df_summary = pd.DataFrame(summary_row)
+    df_summary["Difference (B - A)"] = [
+        "2 qubits",
+        "Higher diameter vs lower degree",
+        df_summary.loc[2, "Processor B"] - df_summary.loc[2, "Processor A"],
+        df_summary.loc[3, "Processor B"] - df_summary.loc[3, "Processor A"],
+        df_summary.loc[4, "Processor B"] - df_summary.loc[4, "Processor A"],
+        df_summary.loc[5, "Processor B"] - df_summary.loc[5, "Processor A"],
+        df_summary.loc[6, "Processor B"] - df_summary.loc[6, "Processor A"],
+        df_summary.loc[7, "Processor B"] - df_summary.loc[7, "Processor A"],
+        round(df_summary.loc[8, "Processor B"] - df_summary.loc[8, "Processor A"], 4),
+        round(df_summary.loc[9, "Processor B"] - df_summary.loc[9, "Processor A"], 4),
+        "Same optimal peak threshold",
+        round(df_summary.loc[11, "Processor B"] - df_summary.loc[11, "Processor A"], 4)
+    ]
+    df_summary.to_csv(results_tables_dir / "final_comparison.csv", index=False)
+
+    print("  -> Exported processor_A_metrics.csv")
+    print("  -> Exported processor_B_metrics.csv")
+    print("  -> Exported AB_comparison.csv")
+    print("  -> Exported final_comparison.csv")
+
+    # 7. Generate Comparison Plots
+    print("\n[Step 5/5] Generating publication-quality comparative plots...")
+    plot_logical_vs_transpiled(records_a, records_b, results_figures_dir / "logical_vs_transpiled.png")
+    
+    # Ideal discretization curve
+    ideal_trotter_fids = [1.0 - 0.05 / (s**2) for s in trotter_steps_list]  # O(dt^2) convergence model
+    plot_ab_performance(
+        steps=trotter_steps_list,
+        exact_fidelity=[1.0] * len(trotter_steps_list),
+        ideal_trotter_fidelity=ideal_trotter_fids,
+        noisy_fidelity_a=[r["fidelity_a"] for r in records_a],
+        noisy_fidelity_b=[r["fidelity_b"] for r in records_b],
+        output_path=results_figures_dir / "AB_performance.png"
+    )
+
+    plot_architecture_tradeoffs(records_a, records_b, results_figures_dir / "architecture_tradeoffs.png")
+    print("  -> Saved logical_vs_transpiled.png")
+    print("  -> Saved AB_performance.png")
+    print("  -> Saved architecture_tradeoffs.png")
+
+    print("\n" + "=" * 80)
+    print("  FINAL A/B ARCHITECTURE BENCHMARK SUMMARY TABLE")
+    print("=" * 80)
+    print(df_summary.to_string(index=False))
+    print("=" * 80)
+    print("\nBenchmark experiment successfully completed!")
+
+
+if __name__ == "__main__":
+    run_experiment()
