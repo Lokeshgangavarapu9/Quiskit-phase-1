@@ -92,17 +92,42 @@ At $\Delta t = 0.05$, the operator norm error is $0.0203$, confirming exact gene
 | **Coupling Map Topology** | Linear Chain | Heavy-Hex Subgraph | Hub vs. line | Degree-3 branching node 1 on B |
 | **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Reduced graph diameter (2 vs. 3 hops) |
 | **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Fewer routing transformations on B |
-| **Equivalent Routing SWAPs ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Decomposed at 3 CX per SWAP |
+| **Equivalent SWAPs Estimated from Excess CX ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Excess CX / 3 (verified by pass inspection) |
 | **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled to native basis CX gates |
 | **Total Circuit Depth ($n=4$)** | 111 | 111 | 0 | Hub critical path matches busiest line qubit |
 | **Two-Qubit Depth ($n=4$)** | 53 | 53 | 0 | Two-qubit critical path duration |
 | **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Sustained scaling reduction on B |
 | **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | 50% fewer routed CX operations |
-| **Equivalent Routing SWAPs ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths |
+| **Equivalent SWAPs Estimated from Excess CX ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths |
 | **Classical Dist Overlap ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Higher output fidelity on B |
-| **Classical Dist Overlap ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise degradation on B |
+| **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise degradation on B |
 | **Total Variation Distance ($n=4$)** | 0.1992 | **0.1697** | **-0.0295** | Lower probability error on B |
 | **Total Variation Distance ($n=10$)** | 0.3403 | **0.3096** | **-0.0308** | Slower distribution divergence on B |
+
+### 4.3 Scientific Claim Classification
+
+1. **Measured Observations:**
+   - Transpiled gate operations: CX gates ($74$ on A vs. $53$ on B at $n=4$; $194$ vs. $137$ at $n=10$).
+   - Circuit depths: Total depth ($111$ on both at $n=4$) and two-qubit depth ($53$ on both at $n=4$).
+   - Explicit SWAP instructions: $0$ in the final unrolled basis circuit.
+   - Empirical counts from 4096 shots under Aer simulation with seed 42.
+
+2. **Calculations Derived from Measured Quantities:**
+   - Routing CX Overhead: $\text{Compiled CX} - \text{Logical CX}$ ($42$ on A vs. $21$ on B at $n=4$).
+   - Equivalent SWAPs Estimated from Excess CX: $\text{Overhead} / 3$ ($14$ on A vs. $7$ on B at $n=4$).
+   - Pass-Level Verification: Inspection of Qiskit's intermediate `routing` stage output (`pm.routing.run`) independently confirms that the `SabreSwap` pass explicitly inserted exactly $14$ `swap` operations on Processor A and $7$ `swap` operations on Processor B prior to 3-CX unrolling.
+   - Distribution metrics: TVD and classical Bhattacharyya overlap.
+
+3. **Interpretations About Processor Topology:**
+   - Processor B's heavy-hex degree-3 hub connects directly to nodes 0, 2, and 3, reducing graph diameter across active spins from 3 hops to 2 hops.
+   - This topological property explains why the router required half as many SWAP operations ($7$ vs. $14$), reducing noisy two-qubit entangling gates by $28.4\%$ and protecting output distribution fidelity.
+
+4. **Model Assumptions (Not verbatim in official competition PDF):**
+   - Transverse-Field Ising Model parameters: $J=1.0, h=0.8, J_{\text{cross}}=0.5$.
+   - Boundary condition: Periodic ring closure ($J_{\text{cross}}=0.5$) adopted to create a non-trivial routing problem.
+   - Physical spins & state: $N=4$ spins initialized in $|\psi_0\rangle = |1010\rangle$.
+   - Simulation time & sweep: $T=1.0$, $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$.
+   - Processor B graph: 7-qubit heavy-hex subgraph with nodes $0..6$.
 
 ---
 

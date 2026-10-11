@@ -86,11 +86,11 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 | **Two-Qubit Depth ($n=4$)** | 53 | 53 | 0 | Equal 2Q critical path duration |
 | **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major reduction in two-qubit gate overhead |
 | **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Excess CX gates introduced by routing |
-| **Equivalent Routing SWAPs ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Decomposed at 3 CX per SWAP |
+| **Equivalent SWAPs Estimated from Excess CX ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Excess CX / 3 (verified by pass inspection) |
 | **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled directly into basis CX gates |
 | **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Cumulative reduction in noisy gate operations |
 | **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | Halved routing overhead on Processor B |
-| **Equivalent Routing SWAPs ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths across QPU |
+| **Equivalent SWAPs Estimated from Excess CX ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths across QPU |
 | **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter discretization |
 | **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Asymptotic Trotter convergence |
 | **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Measured distribution overlap $F_c$ |

@@ -116,11 +116,11 @@ At Trotter step $n=4$:
 | **Two-Qubit Circuit Depth ($n=4$)** | 53 | 53 | 0 | 2Q critical path duration |
 | **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major gate count reduction |
 | **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Excess CX added by router |
-| **Equivalent Routing SWAPs ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | $\text{Overhead} / 3$ |
+| **Equivalent SWAPs Estimated from Excess CX ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Excess CX / 3 (verified by pass inspection) |
 | **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled into basis CX gates |
 | **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Scaling reduction on B |
 | **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | Halved routing overhead |
-| **Equivalent Routing SWAPs ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths |
+| **Equivalent SWAPs Estimated from Excess CX ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths |
 | **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter |
 | **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Discretization refinement |
 | **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Higher distribution overlap |
@@ -129,6 +129,35 @@ At Trotter step $n=4$:
 | **Total Variation Distance ($n=10$)** | 0.3403 | **0.3096** | **-0.0308** | Slower distribution divergence |
 | **Optimal Trotter Step ($n^*$)** | $n=1$ | $n=1$ | 0 | Signal/noise trade-off peak |
 | **Peak Classical Dist Fidelity** | 0.9996 | 0.9996 | 0.0 | Near-ideal overlap at $n=1$ |
+
+---
+
+## 6. Scientific Classification of Claims
+
+To preserve scientific rigor, all benchmark statements are categorized into four distinct levels:
+
+1. **Directly Measured Observations:**
+   - Physical compiled operation counts: CX gates ($74$ on A, $53$ on B at $n=4$; $194$ on A, $137$ on B at $n=10$).
+   - Critical path depths: Total depth ($111$ on both at $n=4$) and two-qubit depth ($53$ on both at $n=4$).
+   - Explicit SWAP instruction count: $0$ on both processors in the final basis-unrolled circuit.
+   - Empirical bitstring counts across 4096 shots under Aer simulation with seeds fixed at 42.
+
+2. **Calculations Derived from Measured Quantities:**
+   - Routing CX Overhead: $\text{Compiled CX} - \text{Logical CX}$ ($42$ on A vs. $21$ on B at $n=4$).
+   - Equivalent SWAPs Estimated from Excess CX: $\text{Overhead} / 3$ ($14$ on A vs. $7$ on B at $n=4$).
+   - Pass-Level Verification: Inspection of Qiskit's intermediate `routing` stage output (`pm.routing.run`) confirms that the `SabreSwap` pass explicitly inserted exactly $14$ `swap` operations on Processor A and $7$ `swap` operations on Processor B prior to 3-CX unrolling, exactly confirming the formula for this circuit.
+   - Total Variation Distance ($D_{\text{TVD}} = \frac{1}{2}\sum_x |P(x) - Q(x)|$) and Bhattacharyya overlap ($F_c = \sum_x \sqrt{P(x)Q(x)}$).
+
+3. **Interpretations About Processor Topology:**
+   - Processor B's heavy-hex degree-3 branching hub (node 1) connects directly to nodes 0, 2, and 3, reducing graph diameter across active spins from 3 hops down to 2 hops.
+   - This topological property explains why the routing pass required half as many SWAP operations ($7$ vs. $14$), reducing noisy two-qubit entangling gates by $28.4\%$ and protecting output distribution fidelity.
+
+4. **Model Assumptions (Not verbatim in official competition PDF):**
+   - Hamiltonian: Transverse-Field Ising Model ($J=1.0, h=0.8, J_{\text{cross}}=0.5$).
+   - Boundary condition: Periodic ring closure ($J_{\text{cross}}=0.5$) adopted to create a non-trivial routing problem.
+   - Physical spins & state: $N=4$ spins initialized in $|\psi_0\rangle = |1010\rangle$.
+   - Simulation time & sweep: $T=1.0$, $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$.
+   - Processor B graph: 7-qubit heavy-hex subgraph with nodes $0..6$.
 
 ---
 
