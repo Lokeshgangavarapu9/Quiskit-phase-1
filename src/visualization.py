@@ -155,14 +155,14 @@ def plot_architecture_tradeoffs(
     axs[0, 0].grid(True, linestyle="--", alpha=0.5)
     axs[0, 0].legend()
 
-    # 2. Routing SWAP Overhead
-    swaps_a = [r["swap_count_a"] for r in results_a]
-    swaps_b = [r["swap_count_b"] for r in results_b]
-    axs[0, 1].bar([s - 0.15 for s in steps], swaps_a, width=0.3, color="#4A90E2", label="Processor A SWAPs")
-    axs[0, 1].bar([s + 0.15 for s in steps], swaps_b, width=0.3, color="#E74C3C", label="Processor B SWAPs")
+    # 2. Routing CX Overhead (decomposed SWAPs)
+    routing_a = [r["two_q_gates_a"] - r["logical_2q_gates"] for r in results_a]
+    routing_b = [r["two_q_gates_b"] - r["logical_2q_gates"] for r in results_b]
+    axs[0, 1].bar([s - 0.15 for s in steps], routing_a, width=0.3, color="#4A90E2", label="Processor A (Line) Routing CX")
+    axs[0, 1].bar([s + 0.15 for s in steps], routing_b, width=0.3, color="#E74C3C", label="Processor B (Heavy-Hex) Routing CX")
     axs[0, 1].set_xlabel("Trotter Steps (n)", fontsize=11, fontweight="bold")
-    axs[0, 1].set_ylabel("SWAP Operations Added", fontsize=11, fontweight="bold")
-    axs[0, 1].set_title("(b) Architecture-Induced Routing SWAPs", fontsize=12, fontweight="bold")
+    axs[0, 1].set_ylabel("Routing CX Overhead Added", fontsize=11, fontweight="bold")
+    axs[0, 1].set_title("(b) Architecture Routing CX Overhead", fontsize=12, fontweight="bold")
     axs[0, 1].grid(True, linestyle="--", alpha=0.5)
     axs[0, 1].legend()
 

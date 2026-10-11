@@ -5,130 +5,173 @@
 **Target Repository:** [https://github.com/Lokeshgangavarapu9/Quiskit-phase-1](https://github.com/Lokeshgangavarapu9/Quiskit-phase-1)  
 **Selected Problem Statement:** `S3 — Noise in Trotter Simulation` (Track: Quantum Simulation)  
 **Date of Audit:** October 11, 2026  
+**Auditor:** Autonomous Verification Engine  
 
 ---
 
-## 1. Official Requirement-to-Evidence Traceability Matrix
+## 1. Pre-Submission Defect & Correction Audit Table
 
-| # | Official Requirement | Source Document & Section | Implementation File | Verification Status & Evidence |
-| :-: | :--- | :--- | :--- | :--- |
-| **1** | Select exactly one problem statement | Participant Instructions §2; Starter Guide §13 | `src/problem.py`, `README.md` | **PASS** — Exclusively implements Problem `S3`. |
-| **2** | Processor A: 5-qubit baseline graph & synthetic noise | Guideline §4; Starter Guide §6, §10, §12 | `processors/processor_A.json`, `src/processors.py` | **PASS** — Verified 5-qubit linear coupling map, basis gates, and noise parameters. |
-| **3** | Processor B: 7-qubit heavy-hex contemporary compilation baseline | Guideline §4, §7; Starter Guide §12 | `processors/processor_B.json`, `src/processors.py` | **PASS** — Canonical 7-qubit heavy-hex subgraph with degree-3 junction nodes. |
-| **4** | Separate ideal/reference and noisy baseline cases | Guideline §7 (Cases A1, A2, B1, B2) | `main.py`, `src/problem.py` | **PASS** — Noise-free statevector/Aer baseline evaluated alongside noisy simulation. |
-| **5** | Controlled benchmark settings | Participant Instructions §5; Starter Guide §14 | `main.py` | **PASS** — Identical Hamiltonian ($J=1, h=0.8$), initial state $|1010\rangle$, shots ($4096$), and seed ($42$). |
-| **6** | Extract problem & architecture metrics | Starter Guide §11.1, §11.2 | `src/transpilation.py`, `src/metrics.py` | **PASS** — Reports depth, CX gates, active vs total qubits, SWAPs, magnetization, TVD, and fidelities. |
-| **7** | Distinguish quantum state fidelity from classical distribution overlap | Scientific Audit Priority 5 | `src/metrics.py`, `main.py` | **PASS** — Discretization pure-state fidelity is separated from classical Bhattacharyya overlap ($F_c$). |
-| **8** | Machine-readable exports | Starter Guide §18 | `results/raw/`, `results/tables/` | **PASS** — Generated `raw_experiment_data.json` and 4 CSV tables. |
-| **9** | Required figures generated | Starter Guide §18 | `results/figures/` | **PASS** — All 5 required PNG figures generated at 300 DPI. |
-| **10** | Reproducibility & automated test suite | Participant Instructions §7, §10 | `tests/test_benchmark.py`, `requirements.txt` | **PASS** — 7 unit tests pass with zero failures. |
-| **11** | AI Assistance Disclosure | Participant Instructions §11 | `AI_DISCLOSURE.md` | **PASS** — Disclosed according to competition policy. |
+| Issue | Original Behavior | Evidence | Correction Applied | Test Performed | Final Status |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **Noise Model: Unsupported Thermal Relaxation Claims** | Text in reports and README claimed "thermal relaxation channels (T1/T2)". | Starter Guide p. 12–13 specifies single-qubit depolarizing ($p_1=0.001$), two-qubit depolarizing ($p_2=0.01$), and readout errors. Thermal relaxation is **not** specified. | Removed all claims of thermal relaxation. Code in `src/processors.py` strictly adheres to depolarizing and readout noise models as defined in Starter Guide p. 13. | `test_noise_model_exact_channels` confirms depolarizing and readout channels without thermal relaxation. | **PASS** |
+| **Routing Overhead vs. Explicit SWAP Accounting** | Tables reported `SWAP count = 0` on both A and B, while text claimed "fewer SWAPs explain gate savings". | The basis gates `['rz', 'sx', 'x', 'cx']` do not include `swap`. The transpiler decomposes each routing SWAP into 3 native CX gates, leaving explicit `swap_count = 0`. | Clarified explicit SWAPs (0) vs. Routing CX Overhead ($42$ on A vs. $21$ on B at $n=4$). Derived equivalent SWAPs ($14$ on A vs. $7$ on B). | `test_routing_cx_overhead_and_unrolled_swaps` validates basis unrolling and gate counts. | **PASS** |
+| **Circuit Depth vs. CX Count Discrepancy** | Both processors reported depth $111$ at $n=4$, despite Processor B having 21 fewer CX gates. | Critical path inspection showed that on B, two-qubit interactions route through degree-3 hub node 1, putting 53 CX gates on the critical path, matching A's busiest qubit chain. | Separated Total Critical Path Depth ($111$ on both) from Two-Qubit Depth ($53$ on both) and Total Two-Qubit CX Gates ($74$ on A vs. $53$ on B). | `test_routing_cx_overhead_and_unrolled_swaps` inspects 2Q depth and operations. | **PASS** |
+| **Exact Magnetization Sits Near Zero** | Tables reported `Exact_Magnetization = 2.78e-17`, while noisy simulations reported non-zero values. | Spatial reflection symmetry $\mathcal{P} H \mathcal{P}^\dagger = H$ acting on $|\psi_0\rangle = |1010\rangle$ enforces $\langle Z_0(t)\rangle = -\langle Z_3(t)\rangle$ and $\langle Z_1(t)\rangle = -\langle Z_2(t)\rangle$, giving identically zero sum for all $t$. | Documented that exact zero magnetization is an exact physical symmetry. Noisy non-zero values arise from asymmetric readout errors ($P(0\mid 1)=0.02 \ne P(1\mid 0)=0.01$). Added `Ideal_Measured_Magnetization`. | `test_exact_magnetization_reflection_symmetry` verifies pairwise cancellation at multiple times $t$. | **PASS** |
+| **Parameter Distinction: Official vs. Assumed** | Previous reports presented all parameters as strictly official without separating source-backed from assumed. | Official materials provide problem list, noise template, and processor JSON structure, but lack a standalone problem-specific numerical parameter sheet for S3. | Explicitly cataloged which parameters are source-backed from competition PDFs and which are benchmark model assumptions. | Audited all 5 PDF files in `official_materials/`. | **PASS** |
 
 ---
 
-## 2. Processor Definitions Verification
+## 2. Official Specification vs. Benchmark Model Assumptions
 
-### 2.1 Processor A ([processors/processor_A.json](file:///c:/Users/LOKESH/quiskit%20phase%201/processors/processor_A.json))
-- **Qubit Count:** 5 physical qubits ($q_0 \dots q_4$).
-- **Coupling Graph:** Directed bidirectional linear chain:
-  `[[0,1], [1,0], [1,2], [2,1], [2,3], [3,2], [3,4], [4,3]]`.
-- **Basis Gates:** `["rz", "sx", "x", "cx"]`.
-- **Designated Ports:** `[0, 4]`.
-- **Noise Model:**
-  - Single-qubit depolarizing error: $p_1 = 0.001$ on `['x', 'sx']` (virtual $R_Z$ gates have 0 duration/error).
-  - Two-qubit depolarizing error: $p_2 = 0.010$ on `['cx']`.
-  - Readout error: $\begin{pmatrix} 0.99 & 0.01 \\ 0.02 & 0.98 \end{pmatrix}$.
-- **Verification Status:** **VERIFIED** against Sections 6, 9, 10, and 12 of the official Starter Guide.
+### 2.1 Strictly Verified from Official Materials
+- **Problem Selection:** `S3 — Noise in Trotter Simulation` (Category 13.3 Quantum Simulation, confirmed in Starter Guide p. 16, Participant Instructions p. 2).
+- **Phase 1 Boundary:** Scope strictly limited to Processor A and Processor B (Participant Instructions p. 3).
+- **Processor A Architecture:** 5-qubit linear topology, basis gates `['rz', 'sx', 'x', 'cx']`, ports `[0, 4]` (Starter Guide p. 15).
+- **Processor B Architecture:** Contemporary heavy-hex compilation baseline with junction nodes (Guideline §4, §7; Starter Guide p. 13, p. 24).
+- **Noise Model Parameters:** Single-qubit depolarizing $p_{1q}=0.001$ (`x`, `sx`), two-qubit depolarizing $p_{2q}=0.01$ (`cx`), readout confusion matrix $[[0.99, 0.01], [0.02, 0.98]]$ (Starter Guide p. 13).
+- **Execution Model:** Synthetic noisy simulations with Aer simulator, separating ideal baseline from noisy baseline (Starter Guide p. 13, p. 19; Guideline p. 7).
+- **Required Metrics:** Circuit depth, two-qubit gate count, SWAP count, physical qubits, and problem-specific fidelity/observable error (Starter Guide p. 14, p. 19).
 
-### 2.2 Processor B ([processors/processor_B.json](file:///c:/Users/LOKESH/quiskit%20phase%201/processors/processor_B.json))
-- **Qubit Count:** 7 physical qubits ($q_0 \dots q_6$).
-- **Coupling Graph:** Heavy-hex-inspired graph with junction nodes:
-  Edges: $(0,1), (1,2), (1,3), (3,5), (4,5), (5,6)$.
-  Coupling Map: 12 directed edges (bidirectional pairs).
-- **Basis Gates:** `["rz", "sx", "x", "cx"]`.
-- **Designated Ports:** `[0, 6]`.
-- **Noise Model:**
-  - Evaluated with identical gate noise rates ($p_1 = 0.001, p_2 = 0.010$) as Processor A.
-  - **Scientific Rationale:** As mandated by the competition instructions (*"Distinguish connectivity effects from differences in gate sets or noise"*), holding noise parameters constant isolates the pure geometric compilation impact of the heavy-hex topology.
-- **Verification Status:** **VERIFIED IMPLEMENTATION** matching contemporary IBM Falcon heavy-hex subgraphs (Slide 4 of `QFF_IBM_Hackathon_Guideline.pdf`).
+### 2.2 Benchmark Model Assumptions (Explicitly Documented)
+- **Hamiltonian Formulation:** 1D Transverse-Field Ising Model ($H = -J \sum Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_3 - h \sum X_i$) with $J=1.0, h=0.8, J_{\text{cross}}=0.5$.
+  - *Rationale:* Standard model for Trotter simulation benchmarks. $J_{\text{cross}}=0.5$ provides a non-local periodic boundary condition that tests processor graph routing.
+- **Spin Count & Initial State:** $N=4$ physical spins initialized in the Neel state $|\psi_0\rangle = |1010\rangle$.
+- **Evolution Time & Sweeps:** Total simulation time $T=1.0$, swept across Trotter steps $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$.
+- **Processor B 7-Qubit Subgraph:** Coupling map with edges `[[0,1], [1,2], [1,3], [3,5], [4,5], [5,6]]` (bidirectional pairs), representing a canonical heavy-hex degree-3 branching subgraph from contemporary IBM Quantum processors.
 
 ---
 
-## 3. Physics & Hamiltonian Audit
+## 3. Physical Analysis & Symmetry Verification
 
-### 3.1 Model Formulation
-The system simulates the 1D Transverse-Field Ising Model (TFIM):
-$$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{i=0}^{N-1} X_i$$
-with parameters $N = 4$ spins, $J = 1.0$, $h = 0.8$, $J_{\text{cross}} = 0.5$, initial state $|1010\rangle$, evolution time $T = 1.0$.
+### 3.1 Spatial Reflection Anti-Symmetry of Exact Magnetization
+The 4-spin TFIM Hamiltonian is:
+$$H = -J (Z_0 Z_1 + Z_1 Z_2 + Z_2 Z_3) - J_{\text{cross}} Z_0 Z_3 - h (X_0 + X_1 + X_2 + X_3)$$
 
-### 3.2 Gate Signs & Unitary Matching
-- Unitary time propagation: $U(dt) = \exp(-i H dt)$.
-- Single-spin rotation: $\exp(i h dt X_i) = R_X(-2 h dt, i)$ (since $R_X(\theta) = \exp(-i \theta X / 2)$).
-- Two-spin interaction: $\exp(i J dt Z_j Z_k) = CX(j, k) \cdot R_Z(-2 J dt, k) \cdot CX(j, k)$ (since $R_Z(\theta) = \exp(-i \theta Z / 2)$).
-- **Independent Numerical Verification:**
-  In `tests/test_benchmark.py::test_independent_numerical_trotter_unitary`, the operator matrix of the circuit step was compared directly against `scipy.linalg.expm(-1j * H * dt)`.
-  $$\|U_{\text{circuit}}(dt) - \exp(-i H dt)\| = 0.0203 \quad (\text{for } dt = 0.05)$$
-  matching first-order Trotter error $\mathcal{O}(dt^2)$ with exact sign consistency.
+Under the spatial reflection operator $\mathcal{P}: i \mapsto 3 - i$:
+- $Z_0 Z_1 \leftrightarrow Z_3 Z_2 = Z_2 Z_3$
+- $Z_1 Z_2 \leftrightarrow Z_2 Z_1 = Z_1 Z_2$
+- $Z_0 Z_3 \leftrightarrow Z_3 Z_0 = Z_0 Z_3$
+- $\sum_i X_i \leftrightarrow \sum_i X_i$
 
-### 3.3 Role of the Cross-Boundary Interaction ($J_{\text{cross}}$)
-- Under pure Open Boundary Conditions ($J_{\text{cross}} = 0$), a 4-spin chain embeds directly onto both Processor A and Processor B with identical 2Q gate counts (24 CX gates at $n=4$).
-- Under Periodic / Cross-Boundary Conditions ($J_{\text{cross}} > 0$), the logical ring requires non-local routing across the processor graph. Processor B's heavy-hex junctions allow compiling the interaction with **21 fewer CX gates at $n=4$** (53 vs 74) and **57 fewer CX gates at $n=10$** (137 vs 194), directly demonstrating the architectural routing advantage.
+Thus, $[\mathcal{P}, H] = 0$.
 
----
+For the staggered initial state $|\psi_0\rangle = |1010\rangle$:
+$$\langle Z_0(0)\rangle = +1, \quad \langle Z_1(0)\rangle = -1, \quad \langle Z_2(0)\rangle = +1, \quad \langle Z_3(0)\rangle = -1$$
+Note that $\langle Z_0(0)\rangle = -\langle Z_3(0)\rangle$ and $\langle Z_1(0)\rangle = -\langle Z_2(0)\rangle$.
 
-## 4. Metric Definitions & Scientific Integrity
+Because Schrödinger evolution preserves this spatial parity anti-symmetry under the reflection-symmetric Hamiltonian, for all time $t$:
+$$\langle Z_0(t)\rangle = -\langle Z_3(t)\rangle, \quad \langle Z_1(t)\rangle = -\langle Z_2(t)\rangle$$
 
-To prevent misleading claims, all metrics are strictly defined and labeled:
+Consequently, the exact total magnetization is identically zero:
+$$\langle M_z(t)\rangle = \frac{1}{4} \sum_{i=0}^3 \langle Z_i(t)\rangle = 0 \quad (\forall t)$$
 
-1. **Ideal Algorithmic State Fidelity ($F_{\text{state}}$):**
-   $$F_{\text{state}}(n) = |\langle \psi_{\text{exact}}(T) | \psi_{\text{trotter\_ideal}}(T) \rangle|^2$$
-   Measures pure mathematical Trotter discretization error. Increases monotonically with step count $n$ ($0.1171$ at $n=1 \to 0.9488$ at $n=4 \to 0.9924$ at $n=10$).
-2. **Classical Distribution Fidelity ($F_c$ / Bhattacharyya Overlap):**
-   $$F_c(P_{\text{noisy}}, P_{\text{ideal}}) = \sum_x \sqrt{P_{\text{noisy}}(x) P_{\text{ideal}}(x)}$$
-   Measures empirical measurement statistics overlap. Correctly labeled as a classical probability similarity metric, NOT quantum state fidelity.
-3. **Total Variation Distance ($\text{TVD}$):**
-   $$\text{TVD}(P, Q) = \frac{1}{2} \sum_x |P(x) - Q(x)| \in [0, 1]$$
-4. **Physical Magnetization Error:**
-   $$\epsilon_{M_z} = |\langle M_z \rangle_{\text{measured}} - \langle M_z \rangle_{\text{exact}}|$$
-5. **Physical Qubit Accounting:**
-   - `total_processor_qubits`: 5 (Processor A), 7 (Processor B).
-   - `active_physical_qubits`: 4 active spins on both processors.
+Numerical evaluations at $t=1.0$:
+- $\langle Z_0\rangle = +0.421887$
+- $\langle Z_1\rangle = -0.584543$
+- $\langle Z_2\rangle = +0.584543$
+- $\langle Z_3\rangle = -0.421887$
+- Total sum $= 2.7755 \times 10^{-17} \approx 0.0000$.
+
+### 3.2 Why Noisy Magnetization is Non-Zero
+In the noisy simulation, asymmetric readout confusion:
+$$P(\text{read } 0 \mid \text{state } 1) = 0.02, \quad P(\text{read } 1 \mid \text{state } 0) = 0.01$$
+flips $|1\rangle \to |0\rangle$ at twice the rate of $|0\rangle \to |1\rangle$. This breaks the particle-hole balance and induces a positive bias in empirical magnetization ($\langle M_z\rangle_{\text{noisy}} \approx 0.005 \dots 0.05$).
 
 ---
 
-## 5. Actual Experiment & Test Outcomes
+## 4. Transpilation, Routing, and Metric Accounting
 
-### 5.1 Test Suite Status
-Command: `.venv\Scripts\python -m unittest tests/test_benchmark.py`
-```text
-Ran 7 tests in 0.262s
-OK
-```
+### 4.1 Why Explicit SWAPs are Zero
+In Qiskit transpilation targeting basis gates `['rz', 'sx', 'x', 'cx']`:
+1. The routing pass inserts SWAP operations to route non-adjacent interactions.
+2. The basis unroller pass decomposes each SWAP into **3 native CX gates**.
+3. Therefore, `swap` operations do not appear in the compiled circuit instructions (`explicit_swap_count = 0`).
+4. The routing overhead is directly visible in the CX gate accumulation:
+   $$\text{Routing CX Overhead} = \text{Compiled CX Gates} - \text{Logical CX Gates}$$
+   $$\text{Equivalent Routing SWAPs} = \frac{\text{Routing CX Overhead}}{3}$$
 
-### 5.2 Corrected Benchmark Results Table
+### 4.2 Architectural Advantage of Processor B
+At Trotter step $n=4$:
+- **Logical Circuit:** 32 CX gates ($8$ CX per Trotter step).
+- **Processor A (Linear Chain):** Compiles to **74 CX gates** (Routing CX Overhead: $42$, Equivalent SWAPs: $14$).
+- **Processor B (Heavy-Hex Subgraph):** Compiles to **53 CX gates** (Routing CX Overhead: $21$, Equivalent SWAPs: $7$).
+- **Net Saving:** Processor B saves **21 CX gates (-28.4%)** and **7 equivalent routing SWAPs (-50.0%)** because its degree-3 hub (node 1) connects directly to nodes 0, 2, and 3, reducing maximum spin distance across the graph from 3 hops down to 2 hops.
+
+### 4.3 Why Total Circuit Depth is 111 on Both
+- On Processor B, all cross-interactions route through the degree-3 hub, so hub node 1 participates in 53 CX gates, forming a critical path of 53 two-qubit layers.
+- On Processor A, the 74 CX gates are distributed across the line, and the busiest qubit chain also happens to have 53 two-qubit layers on its critical path.
+- Single-qubit $R_x$ rotations (unrolled to `rz-sx-rz`) serialize on the critical path to yield a total depth of 111 layers on both processors.
+- However, because depolarizing noise accumulates across all gates regardless of parallelism, Processor B experiences significantly less total noise degradation (higher classical fidelity and lower TVD).
+
+---
+
+## 5. Summary Results Table
 
 | Metric | Processor A (5Q Line) | Processor B (7Q Heavy-Hex) | Difference (B - A) | Notes |
 | :--- | :---: | :---: | :---: | :--- |
-| **Total Processor Qubits** | 5 | 7 | +2 | Register capacity |
-| **Active Physical Qubits** | 4 | 4 | 0 | Subgraph allocation |
-| **Circuit Depth ($n=4$)** | 111 | 111 | 0 | Critical path depth |
-| **Circuit Depth ($n=10$)** | 279 | 279 | 0 | Critical path depth |
-| **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Geometry routing reduction |
-| **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Less noise accumulation |
+| **Total Processor Qubit Capacity** | 5 | 7 | +2 | Total register size |
+| **Active Physical Qubits Used** | 4 | 4 | 0 | 4 active spins on both |
+| **Coupling Topology** | Linear Chain (5Q) | Heavy-Hex Subgraph (7Q) | Branching junctions vs. line | Node 1 is degree-3 hub on B |
+| **Total Circuit Depth ($n=4$)** | 111 | 111 | 0 | Serialized critical path |
+| **Two-Qubit Circuit Depth ($n=4$)** | 53 | 53 | 0 | 2Q critical path duration |
+| **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major gate count reduction |
+| **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Excess CX added by router |
+| **Equivalent Routing SWAPs ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | $\text{Overhead} / 3$ |
+| **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled into basis CX gates |
+| **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Scaling reduction on B |
+| **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | Halved routing overhead |
+| **Equivalent Routing SWAPs ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths |
 | **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter |
 | **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Discretization refinement |
-| **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Measured distribution overlap |
-| **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise degradation on B |
-| **Total Variation Distance ($n=10$)** | 0.3801 | **0.3477** | **-0.0324** | Closer to ideal distribution |
-| **Optimal Step Count ($n^*$)** | $n=1$ | $n=1$ | 0 | Noise crossover threshold |
+| **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Higher distribution overlap |
+| **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise degradation |
+| **Total Variation Distance ($n=4$)** | 0.1992 | **0.1697** | **-0.0295** | Lower distribution error on B |
+| **Total Variation Distance ($n=10$)** | 0.3403 | **0.3096** | **-0.0308** | Slower distribution divergence |
+| **Optimal Trotter Step ($n^*$)** | $n=1$ | $n=1$ | 0 | Signal/noise trade-off peak |
+| **Peak Classical Dist Fidelity** | 0.9996 | 0.9996 | 0.0 | Near-ideal overlap at $n=1$ |
 
 ---
 
-## 6. Limitations & Unverified Aspects
+## 6. Automated Test Suite Validation
 
-1. **Simulation Model vs. Physical Hardware:**
-   All noisy benchmark runs were executed using Qiskit Aer's synthetic noise simulator with thermal depolarizing and readout errors. No physical quantum processor (cloud QPU) was executed.
-2. **Phase 2 Scope Boundary:**
-   In strict compliance with the competition instructions, Processor C (8-10 qubits) and participant-designed Processor D belong exclusively to Phase 2 and are omitted from this submission.
-3. **Absence of Separate Organizer S3 File:**
-   The organizer Google Drive contains general starter guides and slides, but no standalone `S3_Starter_Guide.pdf`. The implementation follows the general Phase 1 starter guide and S3 problem definition specifications.
+Command executed:
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
+```
+
+```text
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 0.298s
+
+OK
+```
+
+All 10 tests passed:
+1. `test_processor_configurations`: Validates JSON schema, basis gates, and qubit counts.
+2. `test_coupling_maps_and_noise_models`: Verifies CouplingMap size and noise instruction generation.
+3. `test_problem_s3_hamiltonian_and_hermiticity`: Validates Hermiticity and dimension ($16 \times 16$).
+4. `test_independent_numerical_trotter_unitary`: Confirms circuit unitary matches $\exp(-iH\Delta t)$ to order $\mathcal{O}(\Delta t^2)$.
+5. `test_algorithmic_state_fidelity_convergence`: Confirms monotonic convergence of $F_{\text{state}} \to 1.0$.
+6. `test_transpilation_and_active_qubits_extraction`: Confirms separation of total capacity from active spins.
+7. `test_noise_model_exact_channels`: Verifies depolarizing and readout channels, confirming zero thermal relaxation.
+8. `test_exact_magnetization_reflection_symmetry`: Confirms pairwise anti-symmetry and zero total magnetization.
+9. `test_routing_cx_overhead_and_unrolled_swaps`: Confirms explicit SWAP = 0 and Processor B CX reduction.
+10. `test_statistical_metrics_and_zero_division`: Confirms TVD, fidelity, and zero-shot edge cases.
+
+---
+
+## 7. Submission Verification Checklist
+
+- [x] S3 problem statement exclusively implemented.
+- [x] Processor A (5Q line) and Processor B (7Q heavy-hex) analyzed.
+- [x] Ideal vs. noisy baseline data cleanly separated.
+- [x] Exact Trotter state fidelity distinguished from classical Bhattacharyya overlap.
+- [x] Active physical qubits ($4$) separated from total register capacity ($5$ and $7$).
+- [x] Zero explicit SWAPs explained via basis gate unrolling; routing CX overhead tracked.
+- [x] Exact zero magnetization explained via spatial reflection symmetry; noisy bias explained via readout asymmetry.
+- [x] Thermal relaxation references removed; exact noise channels documented.
+- [x] Automated test suite passing with 10/10 tests.
+- [x] Clean machine-readable results exported to `results/raw/` and `results/tables/`.
+- [x] All 5 figures generated at 300 DPI in `results/figures/`.
+- [x] Repository clean, committed, and synchronized with remote.

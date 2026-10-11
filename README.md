@@ -52,7 +52,10 @@ $$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{
 - Spin count: $N = 4$
 - Coupling constants: $J = 1.0$, $h = 0.8$, $J_{\text{cross}} = 0.5$
 - Initial state: Antiferromagnetic domain wall $|\psi(0)\rangle = |1010\rangle$
-- Evolution time: $T = 1.5$
+- Evolution time: $T = 1.0$
+
+> [!NOTE]
+> All noisy simulation runs are synthetic simulations executed using Qiskit Aer's `AerSimulator` configured with the official single-qubit depolarizing, two-qubit depolarizing, and readout error parameters. No physical cloud QPU hardware execution was performed, in accordance with the Phase 1 rules.
 
 ### 3.2 Trotter Decomposition
 The evolution operator is approximated via first-order Suzuki-Trotter decomposition with $n$ discrete time steps ($\Delta t = T / n$):
@@ -79,19 +82,25 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 | **Total Processor Capacity** | 5 | 7 | +2 | Register footprint |
 | **Active Physical Qubits** | 4 | 4 | 0 | Subgraph allocation |
 | **Coupling Topology** | Linear Chain | Heavy-Hex Subgraph | Higher branching | Degree-3 nodes allow compact ring mapping |
-| **Circuit Depth ($n=4$)** | 111 | 111 | 0 | Equal critical path depth |
-| **Circuit Depth ($n=10$)** | 279 | 279 | 0 | Identical depth scaling |
-| **2Q (CX) Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major reduction in two-qubit gate overhead |
-| **2Q (CX) Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Cumulative reduction in noisy gate operations |
+| **Total Circuit Depth ($n=4$)** | 111 | 111 | 0 | Equal critical path depth |
+| **Two-Qubit Depth ($n=4$)** | 53 | 53 | 0 | Equal 2Q critical path duration |
+| **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major reduction in two-qubit gate overhead |
+| **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Excess CX gates introduced by routing |
+| **Equivalent Routing SWAPs ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Decomposed at 3 CX per SWAP |
+| **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled directly into basis CX gates |
+| **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Cumulative reduction in noisy gate operations |
+| **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | Halved routing overhead on Processor B |
+| **Equivalent Routing SWAPs ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths across QPU |
 | **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter discretization |
 | **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Asymptotic Trotter convergence |
 | **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Measured distribution overlap $F_c$ |
 | **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise decay on Processor B |
-| **Total Variation Distance ($n=10$)** | 0.3801 | **0.3477** | **-0.0324** | Output distribution closer to ideal |
-| **Optimal Step Threshold $n^*$** | $n=1$ | $n=1$ | 0 | Noise penalty exceeds Trotter gain beyond $n=1$ |
+| **Total Variation Distance ($n=4$)** | 0.1992 | **0.1697** | **-0.0295** | Lower probability deviation on B |
+| **Total Variation Distance ($n=10$)** | 0.3403 | **0.3096** | **-0.0308** | Slower distribution divergence on B |
+| **Optimal Step Threshold $n^*$** | $n=1$ | $n=1$ | 0 | Peak classical distribution overlap at $n=1$ |
 
 > [!NOTE]
-> For the complete scientific audit and requirement-to-code traceability matrix, see [reports/FINAL_AUDIT.md](reports/FINAL_AUDIT.md).
+> For the complete scientific audit and requirement-to-code traceability matrix, see [reports/FINAL_AUDIT.md](reports/FINAL_AUDIT.md). For detailed results and methodology, see [reports/FINAL_RESULTS.md](reports/FINAL_RESULTS.md).
 
 ### 4.2 Circuit Cost Scaling: Logical vs. Transpiled
 

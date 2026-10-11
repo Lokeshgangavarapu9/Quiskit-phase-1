@@ -31,13 +31,18 @@ def extract_circuit_metrics(qc: QuantumCircuit) -> Dict[str, Any]:
         for q in instruction.qubits:
             active_qubits.add(qc.find_bit(q).index)
 
+    # Compute critical path depth considering only two-qubit entangling gates
+    two_q_depth = qc.depth(filter_function=lambda inst: inst.operation.num_qubits == 2)
+
     return {
         "depth": qc.depth(),
+        "two_qubit_depth": two_q_depth,
         "total_processor_qubits": qc.num_qubits,
         "active_physical_qubits": len(active_qubits),
         "num_qubits": qc.num_qubits,  # Backward compatibility
         "total_ops": sum(ops.values()),
         "two_qubit_ops": two_q_count,
+        "explicit_swap_count": swap_count,
         "swap_count": swap_count,
         "operations": dict(ops)
     }

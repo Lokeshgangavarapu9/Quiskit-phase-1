@@ -58,11 +58,13 @@
     },
     "metrics_processor_A": {
       "depth": 27,
+      "two_qubit_depth": 11,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 44,
       "two_qubit_ops": 14,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 16,
@@ -74,11 +76,13 @@
     },
     "metrics_processor_B": {
       "depth": 27,
+      "two_qubit_depth": 11,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 41,
       "two_qubit_ops": 11,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 16,
@@ -147,11 +151,13 @@
     },
     "metrics_processor_A": {
       "depth": 56,
+      "two_qubit_depth": 26,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 86,
       "two_qubit_ops": 32,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 32,
@@ -163,11 +169,13 @@
     },
     "metrics_processor_B": {
       "depth": 55,
+      "two_qubit_depth": 25,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 79,
       "two_qubit_ops": 25,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 32,
@@ -236,11 +244,13 @@
     },
     "metrics_processor_A": {
       "depth": 83,
+      "two_qubit_depth": 39,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 132,
       "two_qubit_ops": 54,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 54,
@@ -252,11 +262,13 @@
     },
     "metrics_processor_B": {
       "depth": 83,
+      "two_qubit_depth": 39,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 117,
       "two_qubit_ops": 39,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 48,
@@ -325,11 +337,13 @@
     },
     "metrics_processor_A": {
       "depth": 111,
+      "two_qubit_depth": 53,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 176,
       "two_qubit_ops": 74,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 74,
@@ -341,11 +355,13 @@
     },
     "metrics_processor_B": {
       "depth": 111,
+      "two_qubit_depth": 53,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 155,
       "two_qubit_ops": 53,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 64,
@@ -414,11 +430,13 @@
     },
     "metrics_processor_A": {
       "depth": 139,
+      "two_qubit_depth": 67,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 220,
       "two_qubit_ops": 94,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 94,
@@ -430,11 +448,13 @@
     },
     "metrics_processor_B": {
       "depth": 139,
+      "two_qubit_depth": 67,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 193,
       "two_qubit_ops": 67,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 80,
@@ -503,11 +523,13 @@
     },
     "metrics_processor_A": {
       "depth": 167,
+      "two_qubit_depth": 81,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 264,
       "two_qubit_ops": 114,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 114,
@@ -519,11 +541,13 @@
     },
     "metrics_processor_B": {
       "depth": 167,
+      "two_qubit_depth": 81,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 231,
       "two_qubit_ops": 81,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 96,
@@ -592,11 +616,13 @@
     },
     "metrics_processor_A": {
       "depth": 223,
+      "two_qubit_depth": 109,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 352,
       "two_qubit_ops": 154,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 154,
@@ -608,11 +634,13 @@
     },
     "metrics_processor_B": {
       "depth": 223,
+      "two_qubit_depth": 109,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 307,
       "two_qubit_ops": 109,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 128,
@@ -681,11 +709,13 @@
     },
     "metrics_processor_A": {
       "depth": 279,
+      "two_qubit_depth": 137,
       "total_processor_qubits": 5,
       "active_physical_qubits": 4,
       "num_qubits": 5,
       "total_ops": 440,
       "two_qubit_ops": 194,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "cx": 194,
@@ -697,11 +727,13 @@
     },
     "metrics_processor_B": {
       "depth": 279,
+      "two_qubit_depth": 137,
       "total_processor_qubits": 7,
       "active_physical_qubits": 4,
       "num_qubits": 7,
       "total_ops": 383,
       "two_qubit_ops": 137,
+      "explicit_swap_count": 0,
       "swap_count": 0,
       "operations": {
         "rz": 160,

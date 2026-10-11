@@ -29,11 +29,12 @@ def build_coupling_map(config: Dict[str, Any]) -> CouplingMap:
 
 def build_noise_model(config: Dict[str, Any]) -> NoiseModel:
     """
-    Construct Qiskit Aer NoiseModel based on the organizer benchmark specification.
-    Includes:
-      - 1-qubit depolarizing error on single-qubit gates (rz, sx, x)
-      - 2-qubit depolarizing error on CX gates
-      - Measurement readout error
+    Construct Qiskit Aer NoiseModel based on official Starter Guide (p. 13) specification:
+      - 1-qubit depolarizing error on physical pulses ('x', 'sx') with p = 0.001
+      - 2-qubit depolarizing error on CX entangling gates with p = 0.01
+      - Readout measurement confusion matrix [[0.99, 0.01], [0.02, 0.98]]
+    Note: Thermal relaxation (T1/T2) is NOT specified by the official Starter Guide
+    and is intentionally not included to prevent inventing unofficial physical parameters.
     """
     noise_cfg = config.get("noise", {})
     noise_model = NoiseModel()

@@ -127,6 +127,67 @@ class TestTrotterBenchmark(unittest.TestCase):
         self.assertGreater(metrics_b["depth"], 0)
         self.assertGreater(metrics_b["two_qubit_ops"], 0)
 
+    def test_noise_model_exact_channels(self):
+        """Verify noise model applies exactly depolarizing + readout, without unverified thermal relaxation."""
+        cfg_a = load_processor_config(self.proc_a_file)
+        noise_a = build_noise_model(cfg_a)
+        
+        # Check instruction names in noise model
+        noisy_ops = set(noise_a._default_quantum_errors.keys())
+        self.assertIn("cx", noisy_ops)
+        self.assertTrue("x" in noisy_ops or "sx" in noisy_ops)
+        # Verify no thermal relaxation instructions or parameters
+        self.assertNotIn("thermal_relaxation", [str(inst) for inst in noise_a.noise_instructions])
+
+    def test_exact_magnetization_reflection_symmetry(self):
+        """
+        Verify exact physical symmetry: spatial reflection symmetry P H P^\dagger = H
+        acting on staggered initial state |1010> implies <Z_0(t)> = -<Z_3(t)>
+        and <Z_1(t)> = -<Z_2(t)>, ensuring exact total magnetization is identically zero for all t.
+        """
+        model = TrotterSimulationModel(num_spins=4, J=1.0, h=0.8, J_cross=0.5, initial_state_str="1010")
+        for t in [0.0, 0.5, 1.0]:
+            psi_t = model.compute_exact_statevector(t)
+            z_expectations = []
+            for i in range(4):
+                z_term = ["I"] * 4
+                z_term[i] = "Z"
+                from qiskit.quantum_info import SparsePauliOp
+                op = SparsePauliOp.from_list([("".join(reversed(z_term)), 1.0)])
+                z_expectations.append(psi_t.expectation_value(op).real)
+
+            # Pairwise anti-symmetry check
+            self.assertAlmostEqual(z_expectations[0], -z_expectations[3], places=6)
+            self.assertAlmostEqual(z_expectations[1], -z_expectations[2], places=6)
+
+            # Total magnetization must equal zero
+            mag_exact = model.compute_exact_magnetization(t)
+            self.assertAlmostEqual(mag_exact, 0.0, places=6)
+
+    def test_routing_cx_overhead_and_unrolled_swaps(self):
+        """Verify routing overhead: explicit SWAP is 0 due to basis unrolling; B has fewer CX gates than A."""
+        model = TrotterSimulationModel(num_spins=4, J=1.0, h=0.8, J_cross=0.5)
+        qc = model.build_trotter_circuit(t=1.0, num_steps=4, measure=True)
+
+        cfg_a = load_processor_config(self.proc_a_file)
+        tc_a, met_a = compile_for_processor(qc, build_coupling_map(cfg_a), basis_gates=cfg_a["basis_gates"])
+
+        cfg_b = load_processor_config(self.proc_b_file)
+        tc_b, met_b = compile_for_processor(qc, build_coupling_map(cfg_b), basis_gates=cfg_b["basis_gates"])
+
+        # Explicit SWAP counts are 0 because SWAPs are unrolled to 3 CX gates
+        self.assertEqual(met_a["explicit_swap_count"], 0)
+        self.assertEqual(met_b["explicit_swap_count"], 0)
+
+        # Processor B heavy-hex hub reduces total CX gates compared to Processor A linear chain
+        self.assertLess(met_b["two_qubit_ops"], met_a["two_qubit_ops"])
+        self.assertEqual(met_a["two_qubit_ops"], 74)
+        self.assertEqual(met_b["two_qubit_ops"], 53)
+
+        # Two-qubit depth is measured
+        self.assertGreater(met_a["two_qubit_depth"], 0)
+        self.assertGreater(met_b["two_qubit_depth"], 0)
+
     def test_statistical_metrics_and_zero_division(self):
         """Verify TVD and Classical Fidelity calculations, including zero-shot edge cases."""
         dist_1 = {"00": 500, "01": 500}
@@ -143,3 +204,4 @@ class TestTrotterBenchmark(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

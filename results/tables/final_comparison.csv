@@ -2,12 +2,15 @@ Metric,Processor A,Processor B,Difference (B - A)
 Total Processor Qubit Capacity,5,7,+2 qubits capacity
 Active Physical Qubits Used,4,4,0 (Both utilize 4 active spins)
 Coupling Topology,Linear Chain (5Q),Heavy-Hex Subgraph (7Q),Branching junctions vs simple line
-Circuit Depth (n=4),111,111,0
-Circuit Depth (n=10),279,279,0
+Total Circuit Depth (n=4),111,111,0
+Two-Qubit Circuit Depth (n=4),53,53,0
 Two-Qubit CX Gates (n=4),74,53,-21
+Routing CX Overhead (n=4),42,21,-21
+Equivalent Routing SWAPs (n=4),14,7,-7
+Explicit SWAP Instructions (n=4),0,0,0
 Two-Qubit CX Gates (n=10),194,137,-57
-Routing SWAPs (n=4),0,0,0
-Routing SWAPs (n=10),0,0,0
+Routing CX Overhead (n=10),114,57,-57
+Equivalent Routing SWAPs (n=10),38,19,-19
 Algorithmic State Fidelity (n=4),0.9488,0.9488,0.0
 Algorithmic State Fidelity (n=10),0.9924,0.9924,0.0
 Classical Dist Fidelity (n=4),0.9577,0.9653,0.0076
