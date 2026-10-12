@@ -1,5 +1,7 @@
 # Qiskit Fall Fest 2026 — Phase 1 Submission
+
 ## Problem S3: Noise in Trotter Simulation
+
 ### Controlled Architecture Benchmarking: Processor A vs. Processor B
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -14,9 +16,11 @@
 In digital quantum simulation, real-time Hamiltonian evolution $U(t) = e^{-iHt}$ is approximated on quantum processors via Trotter product formulas. This project tackles **Problem Statement S3 — Noise in Trotter Simulation** for **Qiskit Fall Fest 2026 Phase 1**.
 
 ### The Central Question
+
 > *How does processor architecture geometry and routing influence the fundamental trade-off between algorithmic Trotter discretization error and physical hardware noise?*
 
 Using the official organizer guidelines, we benchmark the same controlled 4-spin Transverse-Field Ising Model (TFIM) across two distinct quantum architectures:
+
 - **Processor A:** 5-qubit linear chain baseline with synthetic depolarizing and readout noise.
 - **Processor B:** 7-qubit heavy-hex-inspired contemporary compilation baseline with identical gate error rates.
 
@@ -37,18 +41,19 @@ All experiments are deterministic, fully reproducible, and evaluated using both 
 | **Two-Qubit Error ($p_2$)** | 0.010 (on $cx$) | 0.010 (on $cx$) |
 | **Readout Error Matrix** | $[[0.99, 0.01], [0.02, 0.98]]$ | $[[0.99, 0.01], [0.02, 0.98]]$ |
 
-<p align="center">
-  <img src="results/figures/processor_A_graph.png" width="45%" alt="Processor A Graph" />
-  <img src="results/figures/processor_B_graph.png" width="45%" alt="Processor B Graph" />
-</p>
+![Processor A Graph](results/figures/processor_A_graph.png)
+
+![Processor B Graph](results/figures/processor_B_graph.png)
 
 ---
 
 ## 3. Physical Model & Methodology
 
 ### 3.1 Hamiltonian Specification
+
 We simulate a 4-spin 1D chain governed by the Transverse-Field Ising Model (TFIM) with a cross-boundary coupling term to test non-local connectivity:
 $$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{i=0}^{N-1} X_i$$
+
 - Spin count: $N = 4$
 - Coupling constants: $J = 1.0$, $h = 0.8$, $J_{\text{cross}} = 0.5$
 - Initial state: Antiferromagnetic domain wall $|\psi(0)\rangle = |1010\rangle$
@@ -58,13 +63,17 @@ $$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{
 > All noisy simulation runs are synthetic simulations executed using Qiskit Aer's `AerSimulator` configured with the official single-qubit depolarizing, two-qubit depolarizing, and readout error parameters. No physical cloud QPU hardware execution was performed, in accordance with the Phase 1 rules.
 
 ### 3.2 Trotter Decomposition
+
 The evolution operator is approximated via first-order Suzuki-Trotter decomposition with $n$ discrete time steps ($\Delta t = T / n$):
 $$U(T) \approx \left[ \prod_{i=0}^{N-1} e^{-i (-h X_i) \Delta t} \prod_{\langle j, k \rangle} e^{-i (-J Z_j Z_k) \Delta t} \right]^n$$
+
 - Each $e^{i J \Delta t Z_j Z_k}$ interaction is implemented as:
   $$CX(j, k) \to R_Z(-2 J \Delta t, k) \to CX(j, k)$$
+
 - Single-spin transverse rotations are executed via $R_X(-2 h \Delta t, i)$.
 
 ### 3.3 The Trotter Dilemma
+
 1. **Algorithmic Discretization Error:** At small $n$, Trotter error scales as $\mathcal{O}(\Delta t^2) = \mathcal{O}(T^2 / n^2)$. Increasing $n$ reduces this error.
 2. **Hardware Noise & Routing Accumulation:** Each Trotter step increases circuit depth by $\Delta d$ and requires additional two-qubit CX gates. On noisy hardware, gate errors compound exponentially as $(1 - p)^{N_{\text{gates}}}$.
 3. **The Trade-off:** There exists an optimal step count $n^*$ where simulation fidelity peaks. Beyond $n^*$, hardware noise dominates and destroys simulation quality.
@@ -104,21 +113,15 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 
 ### 4.2 Circuit Cost Scaling: Logical vs. Transpiled
 
-<p align="center">
-  <img src="results/figures/logical_vs_transpiled.png" width="90%" alt="Logical vs Transpiled Scaling" />
-</p>
+![Logical vs Transpiled Scaling](results/figures/logical_vs_transpiled.png)
 
 - **Two-Qubit Operations:** On Processor A, routing the periodic boundary interaction ($Z_0 Z_3$) across a 1D linear chain requires repeated gate decompositions along the chain. On Processor B, the presence of degree-3 junction nodes (Qubit 1 and Qubit 5) enables Qiskit's compiler to embed the cyclic connectivity with **29.4% fewer CX gates** at $n=10$ (137 CX gates on B vs. 194 CX gates on A).
 
 ### 4.3 Simulation Performance & Trotter Trade-off
 
-<p align="center">
-  <img src="results/figures/AB_performance.png" width="80%" alt="AB Performance" />
-</p>
+![AB Performance](results/figures/AB_performance.png)
 
-<p align="center">
-  <img src="results/figures/architecture_tradeoffs.png" width="90%" alt="Architecture Trade-offs Dashboard" />
-</p>
+![Architecture Trade-offs Dashboard](results/figures/architecture_tradeoffs.png)
 
 ---
 
@@ -126,8 +129,10 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 
 1. **Why Processor B Outperformed Processor A:**
    Because both processors share identical gate noise parameters ($p_1 = 0.001$, $p_2 = 0.010$), the performance divergence is **purely geometric**. The heavy-hex subgraph offers higher topological connectivity around its central junctions, allowing the transpiler to find an initial layout that drastically shortens two-qubit interaction paths.
+
 2. **Noise Decay Dominates Trotter Refinement:**
    Under standard hardware error rates ($1\%$ CX depolarizing error), the marginal fidelity gain from finer Trotterization ($\Delta t \to 0$) is rapidly overwhelmed by the accumulation of dozens of noisy CX gates. At $n=10$, fidelity drops to $\approx 90\%$ on A and $\approx 92.5\%$ on B.
+
 3. **Engineering Implications for Quantum Simulators:**
    Architectures with higher node degree and compact diameter protect Trotter simulations from noise compounding by reducing gate overhead, even when the overall physical qubit count is modestly larger.
 
@@ -137,14 +142,15 @@ Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ w
 
 ```text
 quiskit phase 1/
-├── official_materials/               # Official competition guides & PDF briefs
-│   ├── Antigravity_..._Instructions.pdf
-│   ├── Updated_QFF_2026_Phase_1_Starter_Guide.pdf
-│   ├── QFF_IBM_Hackathon_Guideline (1).pdf
-│   └── Update_QFF_2026_Hackathon_Phase1_Participant_Instructions (1).pdf.pdf
-├── processors/                       # Official machine-readable processor configurations
+├── docs/                             # Student guide & oral defense walkthrough
+│   └── STUDENT_WALKTHROUGH.md
+├── processors/                       # Machine-readable processor configurations
 │   ├── processor_A.json              # 5-qubit linear baseline
 │   └── processor_B.json              # 7-qubit heavy-hex baseline
+├── reports/                          # Audit reports and experimental reviews
+│   ├── FINAL_AUDIT.md                # Comprehensive audit and mathematical proof
+│   ├── FINAL_RESULTS.md              # Formal experimental results report
+│   └── STUDENT_SUBMISSION_REVIEW.md  # Official checklist review
 ├── src/                              # Modular implementation source code
 │   ├── __init__.py
 │   ├── problem.py                    # Hamiltonian formulation & Trotter circuits
@@ -180,6 +186,7 @@ quiskit phase 1/
 ## 7. Reproducibility & Installation
 
 ### Prerequisites
+
 - Python 3.10 or 3.11 (tested on Python 3.11.9)
 - Git
 
