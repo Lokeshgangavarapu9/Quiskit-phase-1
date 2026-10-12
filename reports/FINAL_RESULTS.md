@@ -1,4 +1,5 @@
 # Scientific Benchmark Report: Problem S3 (Noise in Trotter Simulation)
+
 ## Controlled Architecture Benchmark: Processor A (5-Qubit Line) vs. Processor B (7-Qubit Heavy-Hex Subgraph)
 
 **Project Location:** `C:\Users\LOKESH\quiskit phase 1\`  
@@ -17,7 +18,8 @@ This study evaluates the trade-off between **algorithmic discretization error** 
 
 The physical model is a 4-spin Transverse-Field Ising Model (TFIM) under periodic boundary conditions ($J = 1.0, h = 0.8, J_{\text{cross}} = 0.5$, total time $T = 1.0$) initialized in the staggered Neel state $|\psi_0\rangle = |1010\rangle$.
 
-### Key Findings:
+### Key Findings
+
 1. **Routing Advantage of Heavy-Hex Hubs:**
    Processor B's central degree-3 hub reduces graph distance between opposite spins from 3 hops down to 2 hops. When transpiled into native basis gates (`rz`, `sx`, `x`, `cx`), Processor B achieves a **$28.4\%$ reduction in two-qubit CX gates at $n=4$** ($53$ CX gates on B vs. $74$ on A) and a **$29.4\%$ reduction at $n=10$** ($137$ on B vs. $194$ on A).
 2. **Decomposed SWAP Accounting:**
@@ -41,7 +43,7 @@ The physical model is a 4-spin Transverse-Field Ising Model (TFIM) under periodi
 | **Thermal Relaxation** | Omitted | **Officially Verified** | Omitted because official materials do not specify T1/T2 parameters |
 | **Hamiltonian** | TFIM with periodic cross-coupling | **Benchmark Assumption** | Standard benchmark choice for S3 routing study |
 | **Coupling Constants** | $J=1.0, h=0.8, J_{\text{cross}}=0.5$ | **Benchmark Assumption** | Chosen to balance interaction vs. transverse field and enforce routing |
-| **Spin Count & State** | $N=4$ spins, $|\psi_0\rangle = |1010\rangle$ | **Benchmark Assumption** | Antiferromagnetic Neel state |
+| **Spin Count & State** | $N=4$ spins, $\vert \psi_0\rangle = \vert 1010\rangle$ | **Benchmark Assumption** | Antiferromagnetic Neel state |
 | **Simulation Time** | $T = 1.0$ | **Benchmark Assumption** | Intermediate time scale capturing Trotter convergence and noise crossover |
 | **Processor B Graph** | 7-qubit heavy-hex subgraph | **Benchmark Assumption** | Canonical degree-3 heavy-hex motif matching contemporary IBM QPUs |
 
@@ -53,6 +55,7 @@ The 1D Transverse-Field Ising Model with boundary cross-coupling is defined by:
 $$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{i=0}^{N-1} X_i$$
 
 ### 3.1 First-Order Trotter Decomposition
+
 Unitary evolution $U(T) = \exp(-iHT)$ is approximated into $n$ discrete steps ($\Delta t = T/n$):
 $$U(T) \approx \left[ U_{ZZ}(\Delta t) U_{X}(\Delta t) \right]^n$$
 Where:
@@ -62,6 +65,7 @@ Where:
   - Gate decomposition: $R_X(-2 h \Delta t, i)$
 
 ### 3.2 Gate Matrix Verification
+
 In unit tests (`tests/test_benchmark.py::test_independent_numerical_trotter_unitary`), the circuit operator matrix was compared against SciPy matrix exponentiation:
 $$\|U_{\text{circuit}}(\Delta t) - \exp(-iH\Delta t)\| \le \mathcal{O}(\Delta t^2)$$
 At $\Delta t = 0.05$, the operator norm error is $0.0203$, confirming exact generator signs and mathematical correctness.
@@ -154,6 +158,7 @@ cd "C:\Users\LOKESH\quiskit phase 1"
 pip install -r requirements.txt
 python -m unittest discover -s tests -p "test_*.py"
 python main.py
+
 ```
 
 Generated outputs:

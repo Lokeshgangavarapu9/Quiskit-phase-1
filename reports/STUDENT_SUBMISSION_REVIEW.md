@@ -1,4 +1,5 @@
 # Student Submission Review & Verification Report
+
 ## Qiskit Fall Fest 2026 — Phase 1: Problem S3 (Noise in Trotter Simulation)
 
 **Project Location:** `C:\Users\LOKESH\quiskit phase 1\`  
@@ -47,9 +48,9 @@ Every requirement was traced back to official competition documentation stored i
 | Scientific Item | Verified Behavior & Proof | Finding Label | Notes |
 | :--- | :--- | :---: | :--- |
 | **Hermiticity of Hamiltonian** | $H = H^\dagger$, dimension $16 \times 16$. | **VERIFIED** | Verified by `test_problem_s3_hamiltonian_and_hermiticity`. |
-| **Trotter Unitary Accuracy** | $\|U_{\text{qc}}(\Delta t) - \exp(-i H \Delta t)\| \le \mathcal{O}(\Delta t^2)$. | **VERIFIED** | Verified by `test_independent_numerical_trotter_unitary`. At $\Delta t = 0.05$, norm difference is $0.0203$. |
+| **Trotter Unitary Accuracy** | $\Vert U_{\text{qc}}(\Delta t) - \exp(-i H \Delta t)\Vert  \le \mathcal{O}(\Delta t^2)$. | **VERIFIED** | Verified by `test_independent_numerical_trotter_unitary`. At $\Delta t = 0.05$, norm difference is $0.0203$. |
 | **Asymptotic Convergence** | Pure Trotter fidelity $F_{\text{state}} \to 1.0$ as $n \to \infty$. | **VERIFIED** | $F_{\text{state}}$ increases monotonically from $0.1171$ ($n=1$) to $0.9488$ ($n=4$) and $0.9924$ ($n=10$). |
-| **Reflection Anti-Symmetry** | Exact $\langle M_z(t) \rangle \equiv 0$ for all $t$. | **VERIFIED** | Spatial reflection parity $[\mathcal{P}, H] = 0$ on $|1010\rangle$ enforces $\langle Z_0 \rangle = -\langle Z_3 \rangle$ and $\langle Z_1 \rangle = -\langle Z_2 \rangle$. |
+| **Reflection Anti-Symmetry** | Exact $\langle M_z(t) \rangle \equiv 0$ for all $t$. | **VERIFIED** | Spatial reflection parity $[\mathcal{P}, H] = 0$ on $\vert 1010\rangle$ enforces $\langle Z_0 \rangle = -\langle Z_3 \rangle$ and $\langle Z_1 \rangle = -\langle Z_2 \rangle$. |
 | **Noisy Magnetization Bias** | Measured $\langle M_z \rangle_{\text{noisy}} \sim 0.005 \dots 0.05$. | **VERIFIED** | Explained by asymmetric readout confusion: $P(0\mid 1) = 0.02 \ne P(1\mid 0) = 0.01$, which induces net positive spin bias. |
 | **Processor B Routing Advantage** | Processor B cuts CX gates by $28.4\%$ at $n=4$ (53 vs 74). | **VERIFIED** | Degree-3 branching hubs reduce active spin distance across graph from 3 hops down to 2 hops. |
 | **Explicit SWAP Count (0)** | Explicit SWAPs are 0; routing CX overhead is $42$ on A vs. $21$ on B. | **VERIFIED** | Target basis gates `['rz', 'sx', 'x', 'cx']` unroll each routing SWAP into 3 native CX gates ($1\text{ SWAP} \equiv 3\text{ CX}$). |
@@ -94,13 +95,16 @@ During this final review session, the following specific corrections were implem
 The following test suites and scripts were executed in the workspace environment:
 
 ### Test Suite 1: Automated Unit & Physical Verification Suite
+
 - **Command:** `.\.venv\Scripts\python.exe -m unittest tests/test_benchmark.py`
+
 - **Execution Date:** October 12, 2026
 - **Result:**
   ```text
   Ran 10 tests in 0.326s
   OK
   ```
+
 - **Passed Test Inventory:**
   1. `test_processor_configurations`: PASSED.
   2. `test_coupling_maps_and_noise_models`: PASSED.
@@ -114,7 +118,9 @@ The following test suites and scripts were executed in the workspace environment
   10. `test_statistical_metrics_and_zero_division`: PASSED.
 
 ### Test Suite 2: Benchmark Pipeline Execution
+
 - **Command:** `.\.venv\Scripts\python.exe main.py`
+
 - **Result:** Successfully regenerated all CSV tables in `results/tables/`, JSON data in `results/raw/`, and 5 PNG figures in `results/figures/` without runtime warnings or errors.
 
 ---

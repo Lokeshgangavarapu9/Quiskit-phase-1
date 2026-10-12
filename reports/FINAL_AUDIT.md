@@ -1,4 +1,5 @@
 # Scientific Audit & Verification Report
+
 ## Qiskit Fall Fest 2026 — Phase 1: Problem S3 (Noise in Trotter Simulation)
 
 **Project Location:** `C:\Users\LOKESH\quiskit phase 1\`  
@@ -16,7 +17,7 @@
 | **Noise Model: Unsupported Thermal Relaxation Claims** | Text in reports and README claimed "thermal relaxation channels (T1/T2)". | Starter Guide p. 12–13 specifies single-qubit depolarizing ($p_1=0.001$), two-qubit depolarizing ($p_2=0.01$), and readout errors. Thermal relaxation is **not** specified. | Removed all claims of thermal relaxation. Code in `src/processors.py` strictly adheres to depolarizing and readout noise models as defined in Starter Guide p. 13. | `test_noise_model_exact_channels` confirms depolarizing and readout channels without thermal relaxation. | **PASS** |
 | **Routing Overhead vs. Explicit SWAP Accounting** | Tables reported `SWAP count = 0` on both A and B, while text claimed "fewer SWAPs explain gate savings". | The basis gates `['rz', 'sx', 'x', 'cx']` do not include `swap`. The transpiler decomposes each routing SWAP into 3 native CX gates, leaving explicit `swap_count = 0`. | Clarified explicit SWAPs (0) vs. Routing CX Overhead ($42$ on A vs. $21$ on B at $n=4$). Derived equivalent SWAPs ($14$ on A vs. $7$ on B). | `test_routing_cx_overhead_and_unrolled_swaps` validates basis unrolling and gate counts. | **PASS** |
 | **Circuit Depth vs. CX Count Discrepancy** | Both processors reported depth $111$ at $n=4$, despite Processor B having 21 fewer CX gates. | Critical path inspection showed that on B, two-qubit interactions route through degree-3 hub node 1, putting 53 CX gates on the critical path, matching A's busiest qubit chain. | Separated Total Critical Path Depth ($111$ on both) from Two-Qubit Depth ($53$ on both) and Total Two-Qubit CX Gates ($74$ on A vs. $53$ on B). | `test_routing_cx_overhead_and_unrolled_swaps` inspects 2Q depth and operations. | **PASS** |
-| **Exact Magnetization Sits Near Zero** | Tables reported `Exact_Magnetization = 2.78e-17`, while noisy simulations reported non-zero values. | Spatial reflection symmetry $\mathcal{P} H \mathcal{P}^\dagger = H$ acting on $|\psi_0\rangle = |1010\rangle$ enforces $\langle Z_0(t)\rangle = -\langle Z_3(t)\rangle$ and $\langle Z_1(t)\rangle = -\langle Z_2(t)\rangle$, giving identically zero sum for all $t$. | Documented that exact zero magnetization is an exact physical symmetry. Noisy non-zero values arise from asymmetric readout errors ($P(0\mid 1)=0.02 \ne P(1\mid 0)=0.01$). Added `Ideal_Measured_Magnetization`. | `test_exact_magnetization_reflection_symmetry` verifies pairwise cancellation at multiple times $t$. | **PASS** |
+| **Exact Magnetization Sits Near Zero** | Tables reported `Exact_Magnetization = 2.78e-17`, while noisy simulations reported non-zero values. | Spatial reflection symmetry $\mathcal{P} H \mathcal{P}^\dagger = H$ acting on $\vert \psi_0\rangle = \vert 1010\rangle$ enforces $\langle Z_0(t)\rangle = -\langle Z_3(t)\rangle$ and $\langle Z_1(t)\rangle = -\langle Z_2(t)\rangle$, giving identically zero sum for all $t$. | Documented that exact zero magnetization is an exact physical symmetry. Noisy non-zero values arise from asymmetric readout errors ($P(0\mid 1)=0.02 \ne P(1\mid 0)=0.01$). Added `Ideal_Measured_Magnetization`. | `test_exact_magnetization_reflection_symmetry` verifies pairwise cancellation at multiple times $t$. | **PASS** |
 | **Parameter Distinction: Official vs. Assumed** | Previous reports presented all parameters as strictly official without separating source-backed from assumed. | Official materials provide problem list, noise template, and processor JSON structure, but lack a standalone problem-specific numerical parameter sheet for S3. | Explicitly cataloged which parameters are source-backed from competition PDFs and which are benchmark model assumptions. | Audited all 5 PDF files in `official_materials/`. | **PASS** |
 
 ---
@@ -24,6 +25,7 @@
 ## 2. Official Specification vs. Benchmark Model Assumptions
 
 ### 2.1 Strictly Verified from Official Materials
+
 - **Problem Selection:** `S3 — Noise in Trotter Simulation` (Category 13.3 Quantum Simulation, confirmed in Starter Guide p. 16, Participant Instructions p. 2).
 - **Phase 1 Boundary:** Scope strictly limited to Processor A and Processor B (Participant Instructions p. 3).
 - **Processor A Architecture:** 5-qubit linear topology, basis gates `['rz', 'sx', 'x', 'cx']`, ports `[0, 4]` (Starter Guide p. 15).
@@ -33,6 +35,7 @@
 - **Required Metrics:** Circuit depth, two-qubit gate count, SWAP count, physical qubits, and problem-specific fidelity/observable error (Starter Guide p. 14, p. 19).
 
 ### 2.2 Benchmark Model Assumptions (Explicitly Documented)
+
 - **Hamiltonian Formulation:** 1D Transverse-Field Ising Model ($H = -J \sum Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_3 - h \sum X_i$) with $J=1.0, h=0.8, J_{\text{cross}}=0.5$.
   - *Rationale:* Standard model for Trotter simulation benchmarks. $J_{\text{cross}}=0.5$ provides a non-local periodic boundary condition that tests processor graph routing.
 - **Spin Count & Initial State:** $N=4$ physical spins initialized in the Neel state $|\psi_0\rangle = |1010\rangle$.
@@ -44,6 +47,7 @@
 ## 3. Physical Analysis & Symmetry Verification
 
 ### 3.1 Spatial Reflection Anti-Symmetry of Exact Magnetization
+
 The 4-spin TFIM Hamiltonian is:
 $$H = -J (Z_0 Z_1 + Z_1 Z_2 + Z_2 Z_3) - J_{\text{cross}} Z_0 Z_3 - h (X_0 + X_1 + X_2 + X_3)$$
 
@@ -73,6 +77,7 @@ Numerical evaluations at $t=1.0$:
 - Total sum $= 2.7755 \times 10^{-17} \approx 0.0000$.
 
 ### 3.2 Why Noisy Magnetization is Non-Zero
+
 In the noisy simulation, asymmetric readout confusion:
 $$P(\text{read } 0 \mid \text{state } 1) = 0.02, \quad P(\text{read } 1 \mid \text{state } 0) = 0.01$$
 flips $|1\rangle \to |0\rangle$ at twice the rate of $|0\rangle \to |1\rangle$. This breaks the particle-hole balance and induces a positive bias in empirical magnetization ($\langle M_z\rangle_{\text{noisy}} \approx 0.005 \dots 0.05$).
@@ -82,6 +87,7 @@ flips $|1\rangle \to |0\rangle$ at twice the rate of $|0\rangle \to |1\rangle$. 
 ## 4. Transpilation, Routing, and Metric Accounting
 
 ### 4.1 Why Explicit SWAPs are Zero
+
 In Qiskit transpilation targeting basis gates `['rz', 'sx', 'x', 'cx']`:
 1. The routing pass inserts SWAP operations to route non-adjacent interactions.
 2. The basis unroller pass decomposes each SWAP into **3 native CX gates**.
@@ -91,6 +97,7 @@ In Qiskit transpilation targeting basis gates `['rz', 'sx', 'x', 'cx']`:
    $$\text{Equivalent Routing SWAPs} = \frac{\text{Routing CX Overhead}}{3}$$
 
 ### 4.2 Architectural Advantage of Processor B
+
 At Trotter step $n=4$:
 - **Logical Circuit:** 32 CX gates ($8$ CX per Trotter step).
 - **Processor A (Linear Chain):** Compiles to **74 CX gates** (Routing CX Overhead: $42$, Equivalent SWAPs: $14$).
@@ -98,6 +105,7 @@ At Trotter step $n=4$:
 - **Net Saving:** Processor B saves **21 CX gates (-28.4%)** and **7 equivalent routing SWAPs (-50.0%)** because its degree-3 hub (node 1) connects directly to nodes 0, 2, and 3, reducing maximum spin distance across the graph from 3 hops down to 2 hops.
 
 ### 4.3 Why Total Circuit Depth is 111 on Both
+
 - On Processor B, all cross-interactions route through the degree-3 hub, so hub node 1 participates in 53 CX gates, forming a critical path of 53 two-qubit layers.
 - On Processor A, the 74 CX gates are distributed across the line, and the busiest qubit chain also happens to have 53 two-qubit layers on its critical path.
 - Single-qubit $R_x$ rotations (unrolled to `rz-sx-rz`) serialize on the critical path to yield a total depth of 111 layers on both processors.
@@ -164,8 +172,10 @@ To preserve scientific rigor, all benchmark statements are categorized into four
 ## 6. Automated Test Suite Validation
 
 Command executed:
+
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
+
 ```
 
 ```text
@@ -174,6 +184,7 @@ Command executed:
 Ran 10 tests in 0.298s
 
 OK
+
 ```
 
 All 10 tests passed:
