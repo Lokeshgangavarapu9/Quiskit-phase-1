@@ -52,6 +52,7 @@ The 4-spin TFIM Hamiltonian is:
 $$H = -J (Z_0 Z_1 + Z_1 Z_2 + Z_2 Z_3) - J_{\text{cross}} Z_0 Z_3 - h (X_0 + X_1 + X_2 + X_3)$$
 
 Under the spatial reflection operator $\mathcal{P}: i \mapsto 3 - i$:
+
 - $Z_0 Z_1 \leftrightarrow Z_3 Z_2 = Z_2 Z_3$
 - $Z_1 Z_2 \leftrightarrow Z_2 Z_1 = Z_1 Z_2$
 - $Z_0 Z_3 \leftrightarrow Z_3 Z_0 = Z_0 Z_3$
@@ -70,6 +71,7 @@ Consequently, the exact total magnetization is identically zero:
 $$\langle M_z(t)\rangle = \frac{1}{4} \sum_{i=0}^3 \langle Z_i(t)\rangle = 0 \quad (\forall t)$$
 
 Numerical evaluations at $t=1.0$:
+
 - $\langle Z_0\rangle = +0.421887$
 - $\langle Z_1\rangle = -0.584543$
 - $\langle Z_2\rangle = +0.584543$
@@ -89,6 +91,7 @@ flips $|1\rangle \to |0\rangle$ at twice the rate of $|0\rangle \to |1\rangle$. 
 ### 4.1 Why Explicit SWAPs are Zero
 
 In Qiskit transpilation targeting basis gates `['rz', 'sx', 'x', 'cx']`:
+
 1. The routing pass inserts SWAP operations to route non-adjacent interactions.
 2. The basis unroller pass decomposes each SWAP into **3 native CX gates**.
 3. Therefore, `swap` operations do not appear in the compiled circuit instructions (`explicit_swap_count = 0`).
@@ -99,6 +102,7 @@ In Qiskit transpilation targeting basis gates `['rz', 'sx', 'x', 'cx']`:
 ### 4.2 Architectural Advantage of Processor B
 
 At Trotter step $n=4$:
+
 - **Logical Circuit:** 32 CX gates ($8$ CX per Trotter step).
 - **Processor A (Linear Chain):** Compiles to **74 CX gates** (Routing CX Overhead: $42$, Equivalent SWAPs: $14$).
 - **Processor B (Heavy-Hex Subgraph):** Compiles to **53 CX gates** (Routing CX Overhead: $21$, Equivalent SWAPs: $7$).
@@ -188,6 +192,7 @@ OK
 ```
 
 All 10 tests passed:
+
 1. `test_processor_configurations`: Validates JSON schema, basis gates, and qubit counts.
 2. `test_coupling_maps_and_noise_models`: Verifies CouplingMap size and noise instruction generation.
 3. `test_problem_s3_hamiltonian_and_hermiticity`: Validates Hermiticity and dimension ($16 \times 16$).

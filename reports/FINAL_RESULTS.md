@@ -13,6 +13,7 @@
 ## 1. Executive Summary
 
 This study evaluates the trade-off between **algorithmic discretization error** and **physical device noise** in first-order Suzuki-Trotter quantum simulation across two distinct QPU architectures:
+
 1. **Processor A:** A 5-qubit linear chain baseline ($\text{Q}_0 - \text{Q}_1 - \text{Q}_2 - \text{Q}_3 - \text{Q}_4$).
 2. **Processor B:** A 7-qubit heavy-hex subgraph with degree-3 branching hubs representing contemporary IBM Quantum processors.
 
@@ -59,6 +60,7 @@ $$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{
 Unitary evolution $U(T) = \exp(-iHT)$ is approximated into $n$ discrete steps ($\Delta t = T/n$):
 $$U(T) \approx \left[ U_{ZZ}(\Delta t) U_{X}(\Delta t) \right]^n$$
 Where:
+
 - Interaction propagator: $U_{ZZ}(\Delta t) = \prod_{i=0}^{N-2} \exp(i J \Delta t Z_i Z_{i+1}) \cdot \exp(i J_{\text{cross}} \Delta t Z_0 Z_{N-1})$
   - Gate decomposition: $\text{CX}(j, k) \cdot R_Z(-2 J \Delta t, k) \cdot \text{CX}(j, k)$
 - Transverse field propagator: $U_{X}(\Delta t) = \prod_{i=0}^{N-1} \exp(i h \Delta t X_i)$
@@ -162,6 +164,7 @@ python main.py
 ```
 
 Generated outputs:
+
 - Raw data: [`results/raw/raw_experiment_data.json`](file:///c:/Users/LOKESH/quiskit%20phase%201/results/raw/raw_experiment_data.json)
 - Comparison tables: [`results/tables/AB_comparison.csv`](file:///c:/Users/LOKESH/quiskit%20phase%201/results/tables/AB_comparison.csv), [`results/tables/final_comparison.csv`](file:///c:/Users/LOKESH/quiskit%20phase%201/results/tables/final_comparison.csv)
 - Figures: [`results/figures/AB_performance.png`](file:///c:/Users/LOKESH/quiskit%20phase%201/results/figures/AB_performance.png), [`results/figures/architecture_tradeoffs.png`](file:///c:/Users/LOKESH/quiskit%20phase%201/results/figures/architecture_tradeoffs.png)
