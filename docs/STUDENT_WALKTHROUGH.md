@@ -81,7 +81,7 @@ Our task is to benchmark the exact same physical problem under identical conditi
 
 ## 2. The Physical Hamiltonian & Term Interpretations
 
-In [`src/problem.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/problem.py), the class `TrotterSimulationModel` implements a 4-spin 1D **Transverse-Field Ising Model (TFIM)**:
+In [`src/problem.py`](../src/problem.py), the class `TrotterSimulationModel` implements a 4-spin 1D **Transverse-Field Ising Model (TFIM)**:
 
 $$\hat{H} = - J \sum_{i=0}^{N-2} \hat{Z}_i \hat{Z}_{i+1} - J_{\text{cross}} \hat{Z}_0 \hat{Z}_{N-1} - h \sum_{i=0}^{N-1} \hat{X}_i$$
 
