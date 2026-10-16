@@ -1,19 +1,21 @@
 Metric,Processor A,Processor B,Difference (B - A)
-Total Processor Qubit Capacity,5,7,+2 qubits capacity
+Total Processor Qubit Capacity,5,9,+4 qubits capacity
 Active Physical Qubits Used,4,4,0 (Both utilize 4 active spins)
-Coupling Topology,Linear Chain (5Q),Heavy-Hex Subgraph (7Q),Branching junctions vs simple line
-Total Circuit Depth (n=4),111,111,0
-Two-Qubit Circuit Depth (n=4),53,53,0
-Two-Qubit CX Gates (n=4),74,53,-21
-Routing CX Overhead (n=4),42,21,-21
-Equivalent SWAPs Estimated from Excess CX (n=4),14,7,-7
+Coupling Topology,Linear Chain (5Q),Heavy-Hex Subgraph (9Q),Heavy-hex 12-edge lattice vs simple line
+Total Circuit Depth (n=4),49,49,0
+Two-Qubit Circuit Depth (n=4),18,18,0
+Two-Qubit CX Gates (n=4),24,24,0
+Routing CX Overhead (n=4),0,0,0
+"Estimated Equivalent SWAPs (ΔCX/3, n=4)",0,0,0
 Explicit SWAP Instructions (n=4),0,0,0
-Two-Qubit CX Gates (n=10),194,137,-57
-Routing CX Overhead (n=10),114,57,-57
-Equivalent SWAPs Estimated from Excess CX (n=10),38,19,-19
-Algorithmic State Fidelity (n=4),0.9488,0.9488,0.0
-Algorithmic State Fidelity (n=10),0.9924,0.9924,0.0
-Classical Dist Fidelity (n=4),0.9577,0.9653,0.0076
-Classical Dist Fidelity (n=10),0.8919,0.9103,0.0184
-Optimal Step Count n*,1,1,Same optimal trade-off peak
-Peak Classical Dist Fidelity,0.9996,0.9996,0.0
+Two-Qubit CX Gates (n=10),60,60,0
+Routing CX Overhead (n=10),0,0,0
+"Estimated Equivalent SWAPs (ΔCX/3, n=10)",0,0,0
+Algorithmic State Fidelity (n=4),0.9648,0.9648,0.0
+Algorithmic State Fidelity (n=10),0.9949,0.9949,0.0
+Classical Dist Fidelity (n=4),0.9949,0.9949,0.0
+Classical Dist Fidelity (n=10),0.9842,0.9842,0.0
+Primary Observable <Z_0> Measured (n=4),0.231,0.231,0.0
+Primary Observable Error |<Z_0> - exact| (n=4),0.027,0.027,0.0
+Optimal Step Count n* (by Peak Classical Overlap),1,1,Same optimal trade-off peak
+Peak Classical Dist Overlap,0.9999,0.9999,0.0

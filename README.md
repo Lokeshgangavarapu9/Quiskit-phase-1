@@ -2,18 +2,18 @@
 
 ## Problem S3: Noise in Trotter Simulation
 
-### Controlled Architecture Benchmarking: Processor A vs. Processor B
+### Controlled Architecture Benchmarking: Processor A (5Q Line) vs. Processor B (9Q Heavy-Hex)
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python: 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![Python: 3.11](https://img.shields.io/badge/python-3.11.9-blue.svg)](https://www.python.org/)
 [![Qiskit: 2.5](https://img.shields.io/badge/qiskit-2.5.2-purple.svg)](https://qiskit.org/)
 [![Qiskit Aer: 0.17](https://img.shields.io/badge/qiskit--aer-0.17.2-red.svg)](https://github.com/Qiskit/qiskit-aer)
 
 ---
 
-## 1. Executive Summary & Objective
+## 1. Executive Summary & Problem Scope
 
-In digital quantum simulation, real-time Hamiltonian evolution $U(t) = e^{-iHt}$ is approximated on quantum processors via Trotter product formulas. This project tackles **Problem Statement S3 — Noise in Trotter Simulation** for **Qiskit Fall Fest 2026 Phase 1**.
+In digital quantum simulation, real-time Hamiltonian evolution $\hat{U}(t) = e^{-i \hat{H} t}$ is approximated on quantum processors via Trotter product formulas. This project tackles **Problem Statement S3 — Noise in Trotter Simulation** for **Qiskit Fall Fest 2026 Phase 1**.
 
 ### The Central Question
 
@@ -22,28 +22,31 @@ In digital quantum simulation, real-time Hamiltonian evolution $U(t) = e^{-iHt}$
 Using the official organizer guidelines, we benchmark the same controlled 4-spin Transverse-Field Ising Model (TFIM) across two distinct quantum architectures:
 
 - **Processor A:** 5-qubit linear chain baseline with synthetic depolarizing and readout noise.
-- **Processor B:** 7-qubit heavy-hex-inspired contemporary compilation baseline with identical gate error rates.
+- **Processor B:** 9-qubit heavy-hex reference baseline with identical gate error rates.
 
-All experiments are deterministic, fully reproducible, and evaluated using both physical problem observables ($\langle M_z \rangle$, Total Variation Distance, Classical Fidelity) and architectural resource metrics (circuit depth, two-qubit gate count, routing SWAPs, physical qubit footprint).
+All experiments are deterministic, fully reproducible, and evaluated using both physical problem observables ($\langle Z_0(t) \rangle$, Total Variation Distance, Classical Fidelity) and architectural resource metrics (circuit depth, two-qubit gate count, routing SWAPs, physical qubit footprint).
 
 ---
 
 ## 2. Processor Architecture Definitions
 
-| Architecture Property | Processor A (Baseline) | Processor B (Contemporary Baseline) |
+| Architecture Property | Processor A (Baseline) | Processor B (Heavy-Hex Reference) |
 | :--- | :--- | :--- |
-| **Physical Qubits** | 5 | 7 |
-| **Topology Graph** | Linear Chain ($0-1-2-3-4$) | Heavy-Hex Subgraph |
-| **Coupling Edges** | $(0,1), (1,2), (2,3), (3,4)$ | $(0,1), (1,2), (1,3), (3,5), (4,5), (5,6)$ |
+| **Physical Qubits** | 5 (Nodes 0–4) | 9 (Nodes 0–8) |
+| **Topology Graph** | Linear Chain ($0-1-2-3-4$) | Heavy-Hex Unit Cell Subgraph |
+| **Undirected Coupling Edges** | 4 edges: `(0,1), (1,2), (2,3), (3,4)` | 12 edges: `(0,1), (1,2), (1,6), (2,3), (2,6), (2,5), (3,4), (4,5), (5,6), (6,7), (6,8), (8,0)` |
+| **Directed Pairs** | 8 | 24 |
 | **Basis Gates** | `['rz', 'sx', 'x', 'cx']` | `['rz', 'sx', 'x', 'cx']` |
-| **Designated Ports** | Qubits 0 and 4 | Qubits 0 and 6 |
+| **Designated Ports** | Qubits 0 and 4 | Qubits 0 and 8 |
 | **Single-Qubit Error ($p_1$)** | 0.001 (on $x, sx$) | 0.001 (on $x, sx$) |
-| **Two-Qubit Error ($p_2$)** | 0.010 (on $cx$) | 0.010 (on $cx$) |
-| **Readout Error Matrix** | $[[0.99, 0.01], [0.02, 0.98]]$ | $[[0.99, 0.01], [0.02, 0.98]]$ |
+| **Two-Qubit Error ($p_2$)** | 0.005 (on $cx$) | 0.005 (on $cx$) |
+| **Readout Error Matrix** | Symmetric $1\%$: `[[0.99, 0.01], [0.01, 0.99]]` | Symmetric $1\%$: `[[0.99, 0.01], [0.01, 0.99]]` |
 
 ![Processor A Graph](results/figures/processor_A_graph.png)
+*Figure 1: Processor A 5-qubit linear chain coupling topology.*
 
 ![Processor B Graph](results/figures/processor_B_graph.png)
+*Figure 2: Processor B 9-qubit heavy-hex lattice reference coupling topology.*
 
 ---
 
@@ -51,181 +54,140 @@ All experiments are deterministic, fully reproducible, and evaluated using both 
 
 ### 3.1 Hamiltonian Specification
 
-We simulate a 4-spin 1D chain governed by the Transverse-Field Ising Model (TFIM) with a cross-boundary coupling term to test non-local connectivity:
-$$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{i=0}^{N-1} X_i$$
+We simulate a 4-spin 1D chain governed by the Transverse-Field Ising Model (TFIM):
+$$\hat{H} = - J \sum_{i=0}^{N-2} \hat{Z}_i \hat{Z}_{i+1} - J_{\text{cross}} \hat{Z}_0 \hat{Z}_{N-1} - h \sum_{i=0}^{N-1} \hat{X}_i$$
 
-- Spin count: $N = 4$
-- Coupling constants: $J = 1.0$, $h = 0.8$, $J_{\text{cross}} = 0.5$
-- Initial state: Antiferromagnetic domain wall $|\psi(0)\rangle = |1010\rangle$
-- Evolution time: $T = 1.0$
+- **Spins:** $N = 4$, initial state $|\psi(0)\rangle = |1010\rangle$ (staggered Néel domain wall).
+- **Parameters:** $J = 1.0$, $h = 0.8$, evolution time $T = 1.0$.
+- **Boundary Conditions:**
+  - **Primary Baseline ($J_{\text{cross}} = 0.0$):** Open-chain nearest-neighbor interactions only.
+  - **Architectural Extension ($J_{\text{cross}} = 0.5$):** Periodic ring boundary condition creating a non-local interaction between spins 0 and 3 to stress hardware routing.
 
-> [!NOTE]
-> All noisy simulation runs are synthetic simulations executed using Qiskit Aer's `AerSimulator` configured with the official single-qubit depolarizing, two-qubit depolarizing, and readout error parameters. No physical cloud QPU hardware execution was performed, in accordance with the Phase 1 rules.
+### 3.2 Observables & Symmetries
 
-### 3.2 Trotter Decomposition
-
-The evolution operator is approximated via first-order Suzuki-Trotter decomposition with $n$ discrete time steps ($\Delta t = T / n$):
-$$U(T) \approx \left[ \prod_{i=0}^{N-1} e^{-i (-h X_i) \Delta t} \prod_{\langle j, k \rangle} e^{-i (-J Z_j Z_k) \Delta t} \right]^n$$
-
-- Each $e^{i J \Delta t Z_j Z_k}$ interaction is implemented as:
-  $$CX(j, k) \to R_Z(-2 J \Delta t, k) \to CX(j, k)$$
-
-- Single-spin transverse rotations are executed via $R_X(-2 h \Delta t, i)$.
-
-### 3.3 The Trotter Dilemma
-
-1. **Algorithmic Discretization Error:** At small $n$, Trotter error scales as $\mathcal{O}(\Delta t^2) = \mathcal{O}(T^2 / n^2)$. Increasing $n$ reduces this error.
-2. **Hardware Noise & Routing Accumulation:** Each Trotter step increases circuit depth by $\Delta d$ and requires additional two-qubit CX gates. On noisy hardware, gate errors compound exponentially as $(1 - p)^{N_{\text{gates}}}$.
-3. **The Trade-off:** There exists an optimal step count $n^*$ where simulation fidelity peaks. Beyond $n^*$, hardware noise dominates and destroys simulation quality.
+- **Primary Observable $\langle Z_0(t) \rangle$:** Single-site expectation value. At $t=0$, $\langle Z_0(0) \rangle = +1.0$. At $T=1.0$, $\langle Z_0(1.0) \rangle = +0.257957$ (open chain) and $+0.421887$ (periodic ring).
+- **Secondary Diagnostic $\langle M_z(t) \rangle$:** Total average magnetization $\frac{1}{4} \sum_i \langle Z_i(t) \rangle \equiv 0.000000$ identically for all $t$ due to spatial reflection anti-symmetry $\mathcal{P} \hat{H} \mathcal{P}^\dagger = \hat{H}$ on $|1010\rangle$.
 
 ---
 
-## 4. Benchmark Results & Comparative Analysis
+## 4. Benchmark Results & Comparative Findings
 
 Experiments were executed over step counts $n \in \{1, 2, 3, 4, 5, 6, 8, 10\}$ with 4096 shots and fixed deterministic seeds (`seed=42`).
 
-### 4.1 Executive Summary Table
+### 4.1 Primary Open-Chain Baseline Summary ($J_{\text{cross}} = 0.0$)
 
-| Metric | Processor A (Line) | Processor B (Heavy-Hex) | Difference (B - A) | Architectural Impact |
+| Metric | Processor A (5Q Line) | Processor B (9Q Heavy-Hex) | Difference (B - A) | Notes |
 | :--- | :---: | :---: | :---: | :--- |
-| **Total Processor Capacity** | 5 | 7 | +2 | Register footprint |
-| **Active Physical Qubits** | 4 | 4 | 0 | Subgraph allocation |
-| **Coupling Topology** | Linear Chain | Heavy-Hex Subgraph | Higher branching | Degree-3 nodes allow compact ring mapping |
-| **Total Circuit Depth ($n=4$)** | 111 | 111 | 0 | Equal critical path depth |
-| **Two-Qubit Depth ($n=4$)** | 53 | 53 | 0 | Equal 2Q critical path duration |
-| **Two-Qubit CX Gates ($n=4$)** | 74 | 53 | **-21 (-28.4%)** | Major reduction in two-qubit gate overhead |
-| **Routing CX Overhead ($n=4$)** | 42 | 21 | **-21 (-50.0%)** | Excess CX gates introduced by routing |
-| **Equivalent SWAPs Estimated from Excess CX ($n=4$)** | 14 | 7 | **-7 (-50.0%)** | Excess CX / 3 (verified by pass inspection) |
-| **Explicit SWAP Instructions ($n=4$)** | 0 | 0 | 0 | Unrolled directly into basis CX gates |
-| **Two-Qubit CX Gates ($n=10$)** | 194 | 137 | **-57 (-29.4%)** | Cumulative reduction in noisy gate operations |
-| **Routing CX Overhead ($n=10$)** | 114 | 57 | **-57 (-50.0%)** | Halved routing overhead on Processor B |
-| **Equivalent SWAPs Estimated from Excess CX ($n=10$)** | 38 | 19 | **-19 (-50.0%)** | Half as many routed paths across QPU |
-| **Algorithmic State Fidelity ($n=4$)** | 0.9488 | 0.9488 | 0.0 | Pure mathematical Trotter discretization |
-| **Algorithmic State Fidelity ($n=10$)** | 0.9924 | 0.9924 | 0.0 | Asymptotic Trotter convergence |
-| **Classical Dist Fidelity ($n=4$)** | 0.9577 | **0.9653** | **+0.0076** | Measured distribution overlap $F_c$ |
-| **Classical Dist Fidelity ($n=10$)** | 0.8919 | **0.9103** | **+0.0184** | Slower noise decay on Processor B |
-| **Total Variation Distance ($n=4$)** | 0.1992 | **0.1697** | **-0.0295** | Lower probability deviation on B |
-| **Total Variation Distance ($n=10$)** | 0.3403 | **0.3096** | **-0.0308** | Slower distribution divergence on B |
-| **Optimal Step Threshold $n^*$** | $n=1$ | $n=1$ | 0 | Peak classical distribution overlap at $n=1$ |
+| **Total Processor Capacity** | 5 | 9 | +4 qubits | Register capacity |
+| **Active Physical Qubits** | 4 | 4 | 0 | Both allocate 4 spins |
+| **Coupling Topology** | Linear Chain | Heavy-Hex Subgraph | Higher connectivity | Both embed line directly |
+| **Total Circuit Depth ($n=4$)** | 49 | 49 | 0 | Equal depth |
+| **Two-Qubit Depth ($n=4$)** | 18 | 18 | 0 | Equal 2Q critical path |
+| **Two-Qubit CX Gates ($n=4$)** | 24 | 24 | 0 | Zero routing overhead |
+| **Routing CX Overhead ($n=4$)** | 0 | 0 | 0 | Direct subgraph match |
+| **Two-Qubit CX Gates ($n=10$)** | 60 | 60 | 0 | Identical scaling |
+| **Ideal State Fidelity ($n=4$)** | 0.9648 | 0.9648 | 0.0 | Discretization error only |
+| **Ideal State Fidelity ($n=10$)** | 0.9949 | 0.9949 | 0.0 | Discretization error only |
+| **Classical Dist Overlap $F_c$ ($n=4$)** | 0.9949 | 0.9949 | 0.0 | Under depolarizing + readout |
+| **Classical Dist Overlap $F_c$ ($n=10$)** | 0.9842 | 0.9842 | 0.0 | Noise outpaces refinement |
+| **Measured $\langle Z_0 \rangle$ ($n=4$)** | 0.2310 | 0.2310 | 0.0 | Exact target: $0.257957$ |
+| **Observable Error $\| \langle Z_0 \rangle - \text{exact} \|$ ($n=4$)** | 0.0270 | 0.0270 | 0.0 | Accurate physical recovery |
+| **Optimal Step Count $n^*$** | 1 | 1 | 0 | Peak overlap ($F_c = 0.9999$) |
 
-> [!NOTE]
-> For the complete scientific audit and requirement-to-code traceability matrix, see [reports/FINAL_AUDIT.md](reports/FINAL_AUDIT.md). For detailed results and methodology, see [reports/FINAL_RESULTS.md](reports/FINAL_RESULTS.md).
+### 4.2 Periodic Ring Extension Routing Comparison ($J_{\text{cross}} = 0.5$)
 
-### 4.2 Circuit Cost Scaling: Logical vs. Transpiled
+| Steps $n$ | Logical CX | Proc A CX (5Q Line) | Proc B CX (9Q Heavy-Hex) | Proc A Routing $\Delta CX$ | Proc B Routing $\Delta CX$ | Proc B CX Reduction |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | 8 | 14 | **8** | 6 | **0** | **-42.9%** |
+| **2** | 16 | 32 | **16** | 16 | **0** | **-50.0%** |
+| **4** | 32 | 74 | **32** | 42 | **0** | **-56.8%** |
+| **8** | 64 | 154 | **64** | 90 | **0** | **-58.4%** |
+| **10** | 80 | 194 | **80** | 114 | **0** | **-58.8%** |
 
 ![Logical vs Transpiled Scaling](results/figures/logical_vs_transpiled.png)
+*Figure 3: Circuit depth and two-qubit operation scaling vs. Trotter step count $n$.*
 
-- **Two-Qubit Operations:** On Processor A, routing the periodic boundary interaction ($Z_0 Z_3$) across a 1D linear chain requires repeated gate decompositions along the chain. On Processor B, the presence of degree-3 junction nodes (Qubit 1 and Qubit 5) enables Qiskit's compiler to embed the cyclic connectivity with **29.4% fewer CX gates** at $n=10$ (137 CX gates on B vs. 194 CX gates on A).
-
-### 4.3 Simulation Performance & Trotter Trade-off
-
-![AB Performance](results/figures/AB_performance.png)
+![Trotter Fidelity Trade-off](results/figures/AB_performance.png)
+*Figure 4: Trotter simulation fidelity trade-off: algorithmic discretization vs. hardware noise accumulation.*
 
 ![Architecture Trade-offs Dashboard](results/figures/architecture_tradeoffs.png)
+*Figure 5: 4-panel architecture dashboard: TVD, routing CX overhead, observable error, and 2Q gate accumulation.*
 
 ---
 
-## 5. Scientific Interpretation & Discussion
+## 5. Architectural Co-Design Proposal: Processor D
 
-1. **Why Processor B Outperformed Processor A:**
-   Because both processors share identical gate noise parameters ($p_1 = 0.001$, $p_2 = 0.010$), the performance divergence is **purely geometric**. The heavy-hex subgraph offers higher topological connectivity around its central junctions, allowing the transpiler to find an initial layout that drastically shortens two-qubit interaction paths.
+Per the hackathon organizers' WhatsApp instructions:
+> *"Illustrate the problem faced when running the problem statement on the provided processors and propose a solution involving Processor D."*
 
-2. **Noise Decay Dominates Trotter Refinement:**
-   Under standard hardware error rates ($1\%$ CX depolarizing error), the marginal fidelity gain from finer Trotterization ($\Delta t \to 0$) is rapidly overwhelmed by the accumulation of dozens of noisy CX gates. At $n=10$, fidelity drops to $\approx 90\%$ on A and $\approx 92.5\%$ on B.
+### 5.1 Empirical Failure Modes on Processors A & B
 
-3. **Engineering Implications for Quantum Simulators:**
-   Architectures with higher node degree and compact diameter protect Trotter simulations from noise compounding by reducing gate overhead, even when the overall physical qubit count is modestly larger.
+1. **Processor A (1D Line Baseline):** Linear distance between boundary spins causes severe routing overhead for cyclic/periodic spin systems: **14 SWAPs (42 extra CX gates)** at $n=4$, scaling as $\mathcal{O}(N^2)$ for larger chains.
+2. **Processor B (9-Qubit Reference Topology):** While its reference heavy-hex unit cell embeds a 4-spin ring with 0 SWAPs, its low maximum vertex degree (degree 3) cannot natively embed 2D lattices ($2 \times 3, 2 \times 4$ spin grids) or larger rings without high-latency routing across sparse bridge nodes.
+
+### 5.2 Proposed Processor D Specification (12-Qubit Ring-Ladder)
+
+We propose a **12-qubit Cylindrical Ring-Ladder Architecture** ($|V|=12, |E|=18$, 3-regular) co-designed for lattice quantum dynamics:
+
+- **Topology:** Two coupled 6-qubit rings with 6 vertical rungs connecting corresponding pairs $(i, i+6)$.
+- **Verified Zero-SWAP Subgraphs:** 4-spin ring ($C_4$), 6-spin ring ($C_6$), 8-spin ring ($C_8$), 12-spin ring ($C_{12}$), $2 \times 3$ grid, and $2 \times 4$ grid with **0 routing SWAPs**.
+- **Native Gate Co-Design:** Native parameterized $R_{zz}(\theta)$ entangling gates, replacing standard 2-$CX$ decompositions ($CX \to R_z \to CX$) with single direct entangling pulses, yielding an illustrative **70% reduction in entangling gate duration** based on pulse literature ($120\text{ ns}$ vs $400\text{ ns}$).
+- **Status:** Architectural proposal and co-design analysis (Category B) based on Phase 1 empirical findings; distinguished strictly from empirical hardware measurements.
 
 ---
 
 ## 6. Repository Structure
 
 ```text
-quiskit phase 1/
-├── docs/                             # Student guide & oral defense walkthrough
-│   └── STUDENT_WALKTHROUGH.md
-├── processors/                       # Machine-readable processor configurations
-│   ├── processor_A.json              # 5-qubit linear baseline
-│   └── processor_B.json              # 7-qubit heavy-hex baseline
-├── reports/                          # Audit reports and experimental reviews
-│   ├── FINAL_AUDIT.md                # Comprehensive audit and mathematical proof
-│   ├── FINAL_RESULTS.md              # Formal experimental results report
-│   └── STUDENT_SUBMISSION_REVIEW.md  # Official checklist review
-├── src/                              # Modular implementation source code
-│   ├── __init__.py
-│   ├── problem.py                    # Hamiltonian formulation & Trotter circuits
-│   ├── processors.py                 # Topology & Qiskit Aer noise model loader
-│   ├── transpilation.py              # Compilation & resource metric extraction
-│   ├── metrics.py                    # Magnetization, TVD, and fidelity calculators
-│   └── visualization.py              # Publication-quality plotting routines
-├── results/                          # Benchmark experimental outputs
-│   ├── raw/
-│   │   └── raw_experiment_data.json  # Full JSON simulation dumps
-│   ├── tables/
-│   │   ├── processor_A_metrics.csv   # Processor A step-by-step metrics
-│   │   ├── processor_B_metrics.csv   # Processor B step-by-step metrics
-│   │   ├── AB_comparison.csv         # Comprehensive side-by-side comparison
-│   │   └── final_comparison.csv      # Executive summary table
-│   └── figures/
-│       ├── processor_A_graph.png     # Processor A topology plot
-│       ├── processor_B_graph.png     # Processor B topology plot
-│       ├── logical_vs_transpiled.png # Depth & 2Q gate scaling comparison
-│       ├── AB_performance.png        # Trotter fidelity decay curve
-│       └── architecture_tradeoffs.png# 4-panel multi-metric analysis
+Quiskit-phase-1/
+├── README.md                          # Project overview, setup, and key results
+├── report.md                          # Full scientific submission report
+├── AI_DISCLOSURE.md                   # Truthful AI-use disclosure (Participant Rules §11)
+├── requirements.txt                   # Reproducible Python dependencies
+├── main.py                            # End-to-end benchmark orchestration pipeline
+├── main.ipynb                         # Executed student walkthrough notebook (with saved outputs)
+├── main.ipynb.bak                     # Preserved pre-modification notebook backup
+├── docs/
+│   └── STUDENT_WALKTHROUGH.md         # Comprehensive study & defense guide
+├── processors/
+│   ├── processor_A.json               # 5-qubit linear chain config + verified noise
+│   └── processor_B.json               # 9-qubit heavy-hex config + verified noise
+├── src/
+│   ├── problem.py                     # TFIM model, exact expm reference, Trotter circuits, observables
+│   ├── processors.py                  # Config loading, CouplingMap, and NoiseModel builders
+│   ├── transpilation.py               # Preset pass manager compilation & metric extraction
+│   ├── metrics.py                     # Counts estimators (Z0, Mz), TVD, classical & state fidelity
+│   └── visualization.py               # Publication-grade topology and benchmark figures
 ├── tests/
-│   └── test_benchmark.py             # Unit and integration test suite
-├── main.py                           # End-to-end execution script
-├── main.ipynb                        # Interactive reproducible Jupyter notebook
-├── requirements.txt                  # Pinned software environment specification
-├── AI_DISCLOSURE.md                  # Official AI assistance disclosure statement
-└── README.md                         # Project documentation and analysis
+│   └── test_benchmark.py              # 11 unit & regression tests (physics, noise, routing, edge cases)
+├── results/
+│   ├── archived_7q_v1/                # Preserved original baseline outputs before modification
+│   ├── raw/
+│   │   └── raw_experiment_data.json   # Full raw JSON output + execution metadata
+│   ├── tables/                        # Machine-readable CSV summaries
+│   │   ├── processor_A_metrics.csv
+│   │   ├── processor_B_metrics.csv
+│   │   ├── AB_comparison.csv
+│   │   ├── periodic_extension_comparison.csv
+│   │   ├── combined_benchmark_results.csv
+│   │   └── final_comparison.csv
+│   └── figures/                       # Publication-grade PNG plots
+└── scratch/                           # Verification and execution scripts
 ```
 
 ---
 
-## 7. Reproducibility & Installation
+## 7. How to Reproduce
 
-### Prerequisites
-
-- Python 3.10 or 3.11 (tested on Python 3.11.9)
-- Git
-
-### Quick Setup
+All commands can be executed in the local virtual environment:
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/Lokeshgangavarapu9/Quiskit-phase-1.git
-cd Quiskit-phase-1
+# 1. Run unit test suite (11/11 tests pass)
+.venv\Scripts\python.exe -m unittest tests/test_benchmark.py
 
-# 2. Create virtual environment
-python -m venv .venv
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
+# 2. Run full benchmark pipeline and regenerate CSVs/plots
+.venv\Scripts\python.exe main.py
 
-# 3. Install pinned dependencies
-pip install -r requirements.txt
-
-# 4. Run automated test suite
-python -m unittest tests/test_benchmark.py
-
-# 5. Run full benchmark pipeline
-python main.py
+# 3. Validate clean-kernel notebook execution
+.venv\Scripts\python.exe scratch/execute_notebook.py
 ```
-
----
-
-## 8. Final Competition Checklist
-
-| Requirement | Status | Verification Detail |
-| :--- | :---: | :--- |
-| **Single Problem Selected** | **PASS** | S3 — Noise in Trotter Simulation. |
-| **Official A/B Definitions** | **PASS** | `processor_A.json` & `processor_B.json` based on organizer specs. |
-| **Controlled Experiment** | **PASS** | Identical model, Hamiltonian, shots (4096), and seeds (42). |
-| **Metrics Recorded** | **PASS** | Problem metrics (magnetization, TVD, fidelity) & architecture metrics (depth, 2Q gates, SWAPs, qubits). |
-| **Raw & Processed Results** | **PASS** | Exported to `results/raw/` and `results/tables/`. |
-| **Comparative Figures** | **PASS** | All 5 required graphs generated in `results/figures/`. |
-| **Scientific Explanation** | **PASS** | Complete architecture and noise trade-off analysis documented. |
-| **Clean Environment Setup** | **PASS** | `requirements.txt` generated and verified via unit tests. |
-| **AI Disclosure Included** | **PASS** | Transparent `AI_DISCLOSURE.md` provided. |

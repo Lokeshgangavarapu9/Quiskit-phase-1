@@ -14,10 +14,10 @@
   "noise": {
     "type": "synthetic_depolarizing",
     "single_qubit_depolarizing_p": 0.001,
-    "two_qubit_depolarizing_p": 0.01,
+    "two_qubit_depolarizing_p": 0.005,
     "readout_error_matrix": [
       [0.99, 0.01],
-      [0.02, 0.98]
+      [0.01, 0.99]
     ]
   }
 }

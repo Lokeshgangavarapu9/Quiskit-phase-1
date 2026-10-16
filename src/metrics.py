@@ -1,9 +1,10 @@
 """
 Problem and architecture performance metrics evaluation.
 Provides mathematically rigorous definitions for:
-- Quantum State Fidelity (pure statevector / density matrix overlap)
-- Physical Observable Expectation Values and Statistical Standard Errors
-- Classical Measurement Distribution Similarity (Bhattacharyya coefficient)
+- Quantum State Fidelity (pure statevector overlap in Hilbert space)
+- Single-Site Observable Expectation Values <Z_site> & Standard Error (Primary Observable)
+- Physical Total Magnetization <M_z> (Secondary Symmetry Diagnostic)
+- Classical Measurement Distribution Similarity (Bhattacharyya coefficient F_c)
 - Total Variation Distance (TVD)
 """
 
@@ -18,11 +19,47 @@ def compute_quantum_state_fidelity(
     state_b: Statevector | DensityMatrix
 ) -> float:
     """
-    Compute true Quantum State Fidelity between two quantum states:
+    Compute true Quantum State Fidelity between two quantum states in Hilbert space:
     F(rho, sigma) = (Tr[ sqrt( sqrt(rho) sigma sqrt(rho) ) ])^2
     For pure states: F(|psi>, |phi>) = |<psi|phi>|^2.
     """
     return float(state_fidelity(state_a, state_b))
+
+
+def compute_single_site_z_from_counts(
+    counts: Dict[str, int],
+    num_spins: int,
+    site: int = 0
+) -> Tuple[float, float]:
+    """
+    Compute single-site expectation value <Z_site> and shot standard error from bitstring counts.
+    In Qiskit's bitstring convention ('b_{N-1}...b_1 b_0'), bit 'b_site' is indexed from the right.
+    Eigenvalues of Pauli Z: '0' -> +1, '1' -> -1.
+
+    Returns:
+        (mean_z_site, standard_error)
+    """
+    total_shots = sum(counts.values())
+    if total_shots == 0:
+        return 0.0, 0.0
+
+    if site < 0 or site >= num_spins:
+        raise ValueError(f"Site index {site} out of bounds for {num_spins} spins.")
+
+    # Target index from right: site 0 is index -1, site 1 is index -2, etc.
+    char_index = -(site + 1)
+
+    z_values = []
+    for bitstr, cnt in counts.items():
+        clean_str = bitstr.replace(" ", "")
+        bit_char = clean_str[char_index]
+        z_val = 1.0 if bit_char == "0" else -1.0
+        z_values.extend([z_val] * cnt)
+
+    mean_val = float(np.mean(z_values))
+    std_val = float(np.std(z_values, ddof=1)) if len(z_values) > 1 else 0.0
+    se = float(std_val / math.sqrt(total_shots))
+    return mean_val, se
 
 
 def compute_magnetization_from_counts(
@@ -38,8 +75,6 @@ def compute_magnetization_from_counts(
     if total_shots == 0:
         return 0.0, 0.0
 
-    # Magnetization for each bitstring
-    # Qiskit bitstring convention: 'b_{N-1}...b_0'
     m_values = []
     for bitstr, cnt in counts.items():
         clean_str = bitstr.replace(" ", "")
@@ -81,7 +116,7 @@ def compute_classical_distribution_fidelity(
     """
     Compute Classical Distribution Fidelity (Bhattacharyya coefficient):
     F_c(P, Q) = sum_x sqrt(P(x) * Q(x))
-    NOTE: This is a classical distribution similarity metric for measurement outcomes,
+    NOTE: This is a classical distribution overlap metric for measurement outcomes,
     NOT quantum state fidelity |<psi|phi>|^2.
     """
     shots_n = sum(counts_noisy.values())

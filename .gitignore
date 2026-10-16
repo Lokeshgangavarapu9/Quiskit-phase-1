@@ -43,3 +43,9 @@ Thumbs.db
 *.pem
 *.key
 credentials.json
+
+# Local scratch directory & temporary validation scripts
+scratch/
+*.bak
+*.tmp
+results/archived_7q_v1/

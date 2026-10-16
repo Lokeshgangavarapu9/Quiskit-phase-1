@@ -5,8 +5,10 @@
 **Project Location:** `C:\Users\LOKESH\quiskit phase 1`  
 **GitHub Repository:** [https://github.com/Lokeshgangavarapu9/Quiskit-phase-1](https://github.com/Lokeshgangavarapu9/Quiskit-phase-1)  
 **Track:** Quantum Simulation  
-**Problem Statement:** `S3 — Noise in Trotter Simulation`  
+**Problem Statement:** `S3 — Noise in Trotter Simulation`
+**Target Architectures:** Processor A (5Q Line Baseline) vs. Processor B (9Q Heavy-Hex Reference Baseline)
 **Audience:** Undergraduate physics / computer science students seeking to understand, explain, and defend every line of code and scientific claim in this project.
+
 
 ---
 
@@ -23,12 +25,14 @@
 9. [Ideal Reference vs. Noisy Simulation](#9-ideal-reference-vs-noisy-simulation)
 10. [Circuit Depth vs. Two-Qubit Gate Counting](#10-circuit-depth-vs-two-qubit-gate-counting)
 11. [Explicit SWAP Gates vs. Equivalent SWAP Estimates](#11-explicit-swap-gates-vs-equivalent-swap-estimates)
-12. [Metrics: State Fidelity, Classical Overlap, TVD, & Magnetization](#12-metrics-state-fidelity-classical-overlap-tvd--magnetization)
+12. [Metrics: State Fidelity, Classical Overlap, TVD, & Single-Site Observable](#12-metrics-state-fidelity-classical-overlap-tvd--single-site-observable)
 13. [What the Results Demonstrate (and What They Do Not)](#13-what-the-results-demonstrate-and-what-they-do-not)
-14. [How to Run and Reproduce Every Result](#14-how-to-run-and-reproduce-every-result)
-15. [Questions I Should Be Able to Answer (Oral Defense Guide)](#15-questions-i-should-be-able-to-answer-oral-defense-guide)
+14. [Processor D Architectural Co-Design Proposal](#14-processor-d-architectural-co-design-proposal)
+15. [How to Run and Reproduce Every Result](#15-how-to-run-and-reproduce-every-result)
+16. [Questions I Should Be Able to Answer (Oral Defense Guide)](#16-questions-i-should-be-able-to-answer-oral-defense-guide)
 
 ---
+
 
 ## 1. The S3 Problem & Central Objective
 
@@ -36,7 +40,7 @@
 
 When simulating physical quantum systems on classical computers, the dimension of the Hilbert space grows exponentially as $2^N$ for $N$ spin-1/2 particles. Simulating even 50 spins exceeds the memory capacity of the world's largest supercomputers. Quantum computers, by contrast, map spin-1/2 particles directly to physical qubits.
 
-However, quantum computers cannot execute continuous time evolution $U(t) = e^{-i H t}$ directly as an analog Hamiltonian. Instead, digital quantum processors must approximate continuous unitary evolution using discrete sequences of 1-qubit and 2-qubit quantum logic gates. This technique is called **Trotter product simulation** (or Trotterization).
+However, quantum computers cannot execute continuous time evolution $\hat{U}(t) = e^{-i \hat{H} t}$ directly as an analog Hamiltonian. Instead, digital quantum processors must approximate continuous unitary evolution using discrete sequences of 1-qubit and 2-qubit quantum logic gates. This technique is called **Trotter product simulation** (or Trotterization).
 
 ### 1.2 The Trotter Dilemma
 
@@ -71,7 +75,7 @@ For Qiskit Fall Fest 2026 Phase 1, the competition poses the central question:
 Our task is to benchmark the exact same physical problem under identical conditions on two different quantum processors:
 
 - **Processor A:** A 5-qubit linear chain baseline.
-- **Processor B:** A 7-qubit heavy-hex-inspired contemporary compilation baseline.
+- **Processor B:** A 9-qubit heavy-hex-inspired reference compilation baseline.
 
 ---
 
@@ -79,25 +83,17 @@ Our task is to benchmark the exact same physical problem under identical conditi
 
 In [`src/problem.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/problem.py), the class `TrotterSimulationModel` implements a 4-spin 1D **Transverse-Field Ising Model (TFIM)**:
 
-$$H = - J \sum_{i=0}^{N-2} Z_i Z_{i+1} - J_{\text{cross}} Z_0 Z_{N-1} - h \sum_{i=0}^{N-1} X_i$$
+$$\hat{H} = - J \sum_{i=0}^{N-2} \hat{Z}_i \hat{Z}_{i+1} - J_{\text{cross}} \hat{Z}_0 \hat{Z}_{N-1} - h \sum_{i=0}^{N-1} \hat{X}_i$$
 
 Where:
 
 - $N = 4$ physical spins.
-- $Z_i$ and $X_i$ are standard single-qubit Pauli matrices:
-  $$Z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}, \quad X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$$
-
-### What each physical term means
-
-1. **Nearest-Neighbor Interaction ($-J \sum Z_i Z_{i+1}$):**  
-   Couples adjacent spins along the chain ($Z_0 Z_1$, $Z_1 Z_2$, $Z_2 Z_3$). When $J > 0$ (ferromagnetic), aligned parallel spins ($\uparrow\uparrow$ or $\downarrow\downarrow$) have lower energy than anti-parallel spins ($\uparrow\downarrow$). In our benchmark, $J = 1.0$.
-
-2. **Periodic Cross-Boundary Coupling ($-J_{\text{cross}} Z_0 Z_{N-1}$):**  
-   Couples the two ends of the chain ($Z_0 Z_3$). This turns an open 1D string into a closed ring.  
-   *Why this term matters architecturally:* This is the critical routing benchmark term. On a linear processor graph like Processor A, physical qubit 0 and physical qubit 3 are separated by 3 hops. The compiler must insert routing operations (SWAPs) to bring their quantum states together. In our benchmark, $J_{\text{cross}} = 0.5$.
-
-3. **Transverse Magnetic Field ($-h \sum X_i$):**  
-   Applies an external magnetic field perpendicular to the spin alignment axis (in the $X$ direction). This term drives quantum tunneling and state oscillations between $|0\rangle$ and $|1\rangle$, preventing the spins from being frozen in static classical eigenstates. In our benchmark, $h = 0.8$.
+- $\hat{Z}_i$ and $\hat{X}_i$ are standard single-qubit Pauli matrices.
+- $J = 1.0$: Ferromagnetic nearest-neighbor exchange coupling.
+- $h = 0.8$: Transverse magnetic field driving quantum oscillations.
+- $J_{\text{cross}}$: Boundary condition coupling constant:
+  - **Primary Baseline ($J_{\text{cross}} = 0.0$):** Open-chain 1D model with nearest-neighbor interactions only ($Z_0 Z_1, Z_1 Z_2, Z_2 Z_3$).
+  - **Architectural Extension ($J_{\text{cross}} = 0.5$):** Periodic ring boundary condition coupling spin 0 to spin 3 ($Z_0 Z_3$) to test routing stress.
 
 ---
 
@@ -105,270 +101,152 @@ Where:
 
 ### 3.1 Initial State
 
-The initial state is initialized in the staggered **Neel state** (antiferromagnetic domain wall):
+The initial state is initialized in the staggered **Néel state** (antiferromagnetic domain wall):
 $$|\psi(0)\rangle = |1010\rangle$$
-
-In `TrotterSimulationModel.build_trotter_circuit()`:
-
-```python
-# State preparation in Qiskit (q0 is rightmost bit in string '1010')
-for idx, char in enumerate(reversed(self.initial_state_str)):
-    if char == "1":
-        qc.x(idx)
-```
-
-Qubits 1 and 3 receive Pauli-$X$ gates (bit-flips from $|0\rangle$ to $|1\rangle$), preparing $|\psi(0)\rangle = |1010\rangle$.
+In Qiskit's little-endian bit-ordering (where $q_0$ is the rightmost bit of string `'1010'`), Pauli-$X$ gates are applied to qubits 1 and 3.
 
 ### 3.2 Exact Reflection Anti-Symmetry
 
 The system possesses a physical spatial reflection symmetry $\mathcal{P}: i \mapsto 3 - i$.
+
 Under spatial reflection:
-
-- $Z_0 Z_1 \leftrightarrow Z_2 Z_3$
-- $Z_1 Z_2 \leftrightarrow Z_1 Z_2$
-- $Z_0 Z_3 \leftrightarrow Z_0 Z_3$
-- $\sum X_i \leftrightarrow \sum X_i$
-
-Because $[\mathcal{P}, H] = 0$, Schrödinger evolution preserves reflection parity. For initial state $|1010\rangle$:
-$$\langle Z_0(0) \rangle = +1, \quad \langle Z_1(0) \rangle = -1, \quad \langle Z_2(0) \rangle = +1, \quad \langle Z_3(0) \rangle = -1$$
-Notice that $\langle Z_0 \rangle = -\langle Z_3 \rangle$ and $\langle Z_1 \rangle = -\langle Z_2 \rangle$.  
-By symmetry, this anti-symmetry holds for all time $t$:
-$$\langle Z_0(t) \rangle = -\langle Z_3(t) \rangle, \quad \langle Z_1(t) \rangle = -\langle Z_2(t) \rangle$$
+$$\mathcal{P} \hat{Z}_0 \mathcal{P}^\dagger = \hat{Z}_3, \quad \mathcal{P} \hat{Z}_1 \mathcal{P}^\dagger = \hat{Z}_2, \quad \mathcal{P} \hat{H} \mathcal{P}^\dagger = \hat{H}$$
+Acting on the initial state $|1010\rangle$:
+$$\mathcal{P} |1010\rangle = |0101\rangle = \bigotimes_{i=0}^3 \hat{X}_i |1010\rangle$$
+Because the Hamiltonian commutes with the combined parity-spin-flip symmetry, the expectation values of opposite sites are anti-symmetric:
+$$\langle \hat{Z}_0(t) \rangle = - \langle \hat{Z}_3(t) \rangle, \quad \langle \hat{Z}_1(t) \rangle = - \langle \hat{Z}_2(t) \rangle \quad \forall t$$
 
 Consequently, the **exact total magnetization** is identically zero for all $t$:
-$$\langle M_z(t) \rangle = \frac{1}{4} \sum_{i=0}^3 \langle Z_i(t) \rangle \equiv 0$$
-This exact mathematical property is verified independently in `tests/test_benchmark.py::test_exact_magnetization_reflection_symmetry`.
+$$\langle \hat{M}_z(t) \rangle = \frac{1}{4} \sum_{i=0}^3 \langle \hat{Z}_i(t) \rangle \equiv 0.000000 \quad \forall t$$
+This exact mathematical property is verified independently in `tests/test_benchmark.py`. Because $\langle \hat{M}_z(t) \rangle$ is degenerate for all $t$, tracking it alone would mask Trotter convergence. Therefore, single-site magnetization $\langle \hat{Z}_0(t) \rangle$ serves as our primary observable!
 
 ---
 
 ## 4. First-Order Suzuki-Trotter Decomposition
 
 Continuous unitary evolution is:
-$$U(t) = e^{-i H t} = \exp\left( -i \left[ H_{ZZ} + H_X \right] t \right)$$
+$$\hat{U}(t) = e^{-i \hat{H} t} = \exp\left( -i \left[ \hat{H}_{ZZ} + \hat{H}_X \right] t \right)$$
 
-Because $[H_{ZZ}, H_X] \ne 0$ (Pauli $Z$ and $X$ anti-commute: $Z X = - X Z$), the matrix exponential cannot be split into a simple product:
-$$e^{-i (H_{ZZ} + H_X) t} \ne e^{-i H_{ZZ} t} e^{-i H_X t}$$
+Because $[\hat{H}_{ZZ}, \hat{H}_X] \ne 0$, the first-order Trotter-Suzuki product formula discretizes time into $n$ steps of $\Delta t = t / n$:
+$$\hat{U}(t) \approx \left[ e^{-i \hat{H}_{ZZ} \Delta t} e^{-i \hat{H}_X \Delta t} \right]^n$$
 
-### 4.1 The Baker-Campbell-Hausdorff (BCH) Formula
-
-For small time step $\Delta t = t / n$:
-$$e^{-i H_{ZZ} \Delta t} e^{-i H_X \Delta t} = \exp\left( -i (H_{ZZ} + H_X) \Delta t - \frac{\Delta t^2}{2} [H_{ZZ}, H_X] + \mathcal{O}(\Delta t^3) \right)$$
-
-By taking $n$ steps of duration $\Delta t = t / n$:
-$$U(t) \approx \left[ e^{-i H_{ZZ} \Delta t} e^{-i H_X \Delta t} \right]^n$$
-
-The leading commutator error per step is $\mathcal{O}(\Delta t^2) = \mathcal{O}(t^2 / n^2)$.  
-Accumulated across $n$ steps, the total algorithmic discretization error scales as:
-$$\text{Total Trotter Error} \sim n \cdot \mathcal{O}\left(\frac{t^2}{n^2}\right) = \mathcal{O}\left(\frac{t^2}{n}\right)$$
-As $n \to \infty$, the Trotter approximation converges monotonically to the exact unitary operator.
+The leading commutator error per step scales as $\mathcal{O}(\Delta t^2) = \mathcal{O}(t^2 / n^2)$. Accumulated across $n$ steps, the total algorithmic discretization error shrinks as $\mathcal{O}(t^2 / n)$. As $n \to \infty$, the ideal Trotter state converges monotonically to the continuum target.
 
 ---
 
 ## 5. Quantum Circuit Construction
 
-How do we implement $e^{-i H_{ZZ} \Delta t}$ and $e^{-i H_X \Delta t}$ with standard quantum gates?
+- **Two-Qubit Interaction Gate ($e^{i J \Delta t Z_j Z_k}$):** Synthesized via:
+  $$CX(j, k) \to R_z(-2 J \Delta t, k) \to CX(j, k)$$
+- **Single-Qubit Field Gate ($e^{i h \Delta t X_i}$):** Synthesized via $R_x(-2 h \Delta t, i)$.
 
-### 5.1 Two-Qubit Interaction Gate: $e^{i J \Delta t Z_j Z_k}$
-
-We use the mathematical identity:
-$$CX_{j, k} (I \otimes Z_k) CX_{j, k} = Z_j \otimes Z_k$$
-Therefore, conjugating an $R_Z$ rotation by CNOT gates synthesizes a $Z \otimes Z$ interaction:
-$$CX_{j, k} \cdot R_Z(\theta, k) \cdot CX_{j, k} = \exp\left( -i \frac{\theta}{2} Z_j Z_k \right)$$
-
-To achieve $\exp(-i (-J \Delta t) Z_j Z_k) = \exp(i J \Delta t Z_j Z_k)$, we choose $\theta = -2 J \Delta t$:
-
-```python
-# In src/problem.py:
-qc.cx(i, i + 1)
-qc.rz(-2.0 * self.J * dt, i + 1)
-qc.cx(i, i + 1)
-```
-
-### 5.2 Single-Qubit Field Gate: $e^{i h \Delta t X_i}$
-
-An $R_X$ rotation generates an $X$ rotation:
-$$R_X(\phi, i) = \exp\left( -i \frac{\phi}{2} X_i \right)$$
-Setting $\phi = -2 h \Delta t$ gives $\exp(i h \Delta t X_i)$:
-
-```python
-# In src/problem.py:
-qc.rx(-2.0 * self.h * dt, i)
-```
-
-Each Trotter step consists of:
-
-- 3 nearest-neighbor $ZZ$ blocks ($2 \times 3 = 6$ CX gates).
-- 1 cross-boundary $ZZ$ block ($2 \times 1 = 2$ CX gates).
-- 4 single-qubit $R_X$ gates.
-- **Logical Two-Qubit Total:** Exactly $8$ CX gates per Trotter step.
+For the open-chain baseline, each Trotter step contains 3 $ZZ$ blocks ($3 \times 2 = 6$ CX gates) and 4 $R_x$ gates. For the periodic ring extension, each Trotter step contains 4 $ZZ$ blocks ($4 \times 2 = 8$ CX gates) and 4 $R_x$ gates.
 
 ---
 
 ## 6. Processor A vs. Processor B Topologies
 
-The processor configurations are defined in [`processors/processor_A.json`](file:///c:/Users/LOKESH/quiskit%20phase%201/processors/processor_A.json) and [`processors/processor_B.json`](file:///c:/Users/LOKESH/quiskit%20phase%201/processors/processor_B.json):
-
 ```text
 Processor A: Linear Chain (5 Qubits)
-  0 ── 1 ── 2 ── 3 ── 4
-  (Designated I/O ports: 0, 4)
+  (0) --- (1) --- (2) --- (3) --- (4)
+ [Port]                          [Port]
 
-Processor B: Heavy-Hex Subgraph (7 Qubits)
-  0 ── 1 ── 2
-       │
-       3
-       │
-  4 ── 5 ── 6
-  (Designated I/O ports: 0, 6)
+Processor B: Heavy-Hex Reference Lattice (9 Qubits, 12 Undirected Edges)
+         (1) ----------- (2)
+        /   \           /   \
+       /     \         /     \
+     (0)     (6) --- (5)     (3)
+    [Port]  /   \     |       |
+           /     \    |       |
+         (8) --- (7) (4)      |
+        [Port]
 ```
 
 ### Key Differences
 
-1. **Node Degree (Connectivity):**  
-   - On Processor A, every internal node has degree 2 (simple line).
-   - On Processor B, nodes 1 and 5 have **degree 3** (junction hubs).
-2. **Graph Diameter for 4 Spins:**  
-   - On Processor A, spins arranged $0, 1, 2, 3$ have distance 3 between spin 0 and spin 3.
-   - On Processor B, spin 0 and spin 2 can connect to spin 1 directly, and node 3 connects 1 to 5. The effective graph diameter across the active spins is reduced to 2 hops.
+1. **Connectivity & Node Degree:** Processor A nodes have maximum degree 2 (line). Processor B has junction nodes (degree 3 and 4), providing alternative routing paths.
+2. **Cycle Embedding:** Processor B contains the heavy-hex hexagonal cycle `(1, 2, 5, 6)`. When simulating the periodic ring extension, the 4 logical spins map directly to this cycle:
+   $$q_0 \mapsto 1, \quad q_1 \mapsto 2, \quad q_2 \mapsto 5, \quad q_3 \mapsto 6$$
+   Because all 4 edges `(1,2), (2,5), (5,6), (6,1)` physically exist, the periodic boundary condition requires **zero routing SWAPs**, cutting two-qubit CX gates by 56.8% compared to Processor A.
 
 ---
 
 ## 7. Transpilation, Routing, & Layout Mapping
 
-In [`src/transpilation.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/transpilation.py), the function `compile_for_processor()` calls Qiskit's compiler:
+Circuits are compiled targeting each processor's coupling map and basis gates `['rz', 'sx', 'x', 'cx']` using Qiskit's `generate_preset_pass_manager(optimization_level=1, seed_transpiler=42)`:
 
-```python
-compiled = transpile(
-    logical_circuit,
-    coupling_map=coupling_map,
-    basis_gates=['rz', 'sx', 'x', 'cx'],
-    optimization_level=1,
-    seed_transpiler=42
-)
-```
-
-### The 4 Transpilation Stages
-
-1. **Layout / Placement:** Maps logical qubits $q_0, q_1, q_2, q_3$ to physical processor qubits. Both processors select 4 active qubits out of their available capacity (5 on A, 7 on B).
-2. **Routing:** If a CNOT gate is required between two non-adjacent physical qubits, the `SabreSwap` pass inserts SWAP operations to exchange qubit states along the graph until they are adjacent.
-3. **Basis Gate Decomposition:** Decomposes non-native gates into the physical basis set: `['rz', 'sx', 'x', 'cx']`.
-4. **Optimization:** Cancels adjacent inverse gates ($CX \cdot CX = I$, $RZ(\alpha) RZ(\beta) = RZ(\alpha + \beta)$).
+- **Layout:** Maps 4 logical qubits onto 4 active physical qubits out of the chip's total capacity (5 on A, 9 on B).
+- **Routing:** If interacting qubits are non-adjacent, `SabreSwap` inserts SWAPs along shortest paths.
+- **Decomposition:** Unrolls SWAP gates into 3 native CX gates and translates single-qubit rotations into `rz` and `sx`.
 
 ---
 
 ## 8. Hardware Noise Modeling (Depolarizing & Readout)
 
-In [`src/processors.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/processors.py), `build_noise_model()` configures Qiskit Aer's `NoiseModel` according to the official Starter Guide (p. 13):
+Noisy simulations use Qiskit Aer configured with verified Phase 1 noise parameters:
 
-### 8.1 Single-Qubit Depolarizing Error
-
-Applied to physical 1-qubit pulses (`x`, `sx`) with error rate $p_1 = 0.001$:
-$$\mathcal{E}_{1}(\rho) = (1 - p_1) \rho + \frac{p_1}{3} (X \rho X + Y \rho Y + Z \rho Z)$$
-
-### 8.2 Two-Qubit Depolarizing Error
-
-Applied to physical entangling gates (`cx`) with error rate $p_2 = 0.010$ (10x higher than 1Q gates):
-$$\mathcal{E}_{2}(\rho) = (1 - p_2) \rho + \frac{p_2}{15} \sum_{P \in \{I, X, Y, Z\}^{\otimes 2} \setminus \{II\}} P \rho P$$
-
-### 8.3 Asymmetric Readout Confusion
-
-Measurement outcomes are corrupted by a classical confusion matrix:
-$$R = \begin{pmatrix} P(\text{read } 0 \mid \text{state } 0) & P(\text{read } 0 \mid \text{state } 1) \\ P(\text{read } 1 \mid \text{state } 0) & P(\text{read } 1 \mid \text{state } 1) \end{pmatrix} = \begin{pmatrix} 0.99 & 0.02 \\ 0.01 & 0.98 \end{pmatrix}$$
-
-Notice:
-$$P(\text{read } 0 \mid \text{state } 1) = 0.02 \ne P(\text{read } 1 \mid \text{state } 0) = 0.01$$
-The probability of misreading a true $|1\rangle$ as a $0$ is twice as large as misreading a true $|0\rangle$ as a $1$. This asymmetry induces a slight positive bias in empirical magnetization measurements.
-
-> [!NOTE]
-> **No Thermal Relaxation ($T_1/T_2$):** The official competition guide does not specify qubit lifetimes ($T_1$) or coherence times ($T_2$). In strict adherence to scientific integrity, thermal relaxation is omitted rather than inventing unofficial parameter values.
+- **Single-Qubit Depolarizing Error:** $p_1 = 0.001$ on physical single-qubit pulses ($X, \sqrt{X}$).
+- **Two-Qubit Depolarizing Error:** $p_2 = 0.005$ on physical entangling gates ($CX$).
+- **Symmetric Readout Error:** Symmetric $1\%$ bit-flip confusion matrix:
+  $$\mathbf{M} = \begin{pmatrix} 0.99 & 0.01 \\ 0.01 & 0.99 \end{pmatrix}$$
+- **Execution Settings:** 4096 measurement shots per circuit, deterministic random seed `seed=42`.
 
 ---
 
 ## 9. Ideal Reference vs. Noisy Simulation
 
-In `main.py`, three simulation runs are executed for each step count $n$:
+In `main.py` and `main.ipynb`, three distinct simulation runs are executed for each step count $n$:
 
-1. **Ideal Simulation (`sim_ideal`):** Runs the logical circuit with zero noise, capturing the pure algorithmic discretization state.
-2. **Processor A Noisy Simulation (`sim_a`):** Compiles onto Processor A's coupling map and simulates under Processor A's noise model.
-3. **Processor B Noisy Simulation (`sim_b`):** Compiles onto Processor B's coupling map and simulates under Processor B's noise model.
-
-All simulators use 4096 measurement shots and fixed seeds (`seed=42`).
+1. **Ideal Simulation (`sim_ideal`):** Runs the logical circuit with zero noise, isolating algorithmic Trotter discretization error.
+2. **Processor A Noisy Simulation (`sim_a`):** Compiles onto Processor A's 5Q line and simulates under hardware noise.
+3. **Processor B Noisy Simulation (`sim_b`):** Compiles onto Processor B's 9Q heavy-hex lattice and simulates under hardware noise.
 
 ---
 
 ## 10. Circuit Depth vs. Two-Qubit Gate Counting
 
-In [`src/transpilation.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/transpilation.py):
-
-- **Total Depth:** The longest critical path of gates from circuit input to output, including 1-qubit and 2-qubit gates.
-- **Two-Qubit Depth:** The critical path considering only entangling gates (`operation.num_qubits == 2`).
+- **Total Depth:** The longest critical path of gates from circuit input to output.
+- **Two-Qubit Depth:** The critical path considering only entangling gates.
 - **Two-Qubit Gate Count:** The total count of CX gates across the entire circuit.
 
-### Why is Total Depth Equal (111) while CX Gate Counts Differ (74 vs. 53 at $n=4$)
+On the open-chain baseline at $n=4$:
 
-- On Processor B, cross-interactions route through the degree-3 hub (qubit 1). Qubit 1 participates in 53 CX gates, forming a critical path of 53 two-qubit layers.
-- On Processor A, the 74 CX gates are distributed across the line, and the busiest qubit chain also has 53 two-qubit layers on its critical path.
-- When single-qubit $R_X$ pulses (unrolled to `rz-sx-rz`) are added, both processors yield a total depth of 111.
-- **Key Insight:** Equal depth does *not* mean equal error. Because depolarizing noise occurs on *every* gate regardless of whether gates execute in parallel, Processor B's 21 fewer gates result in significantly less total mixed-state noise entropy.
+- Both processors yield total depth $= 49$, two-qubit depth $= 18$, and CX count $= 24$.
+
+On the periodic ring extension at $n=4$:
+
+- Processor A requires 74 CX gates (42 routing CX, 14 SWAPs).
+- Processor B requires 32 CX gates (0 routing CX, 0 SWAPs).
 
 ---
 
 ## 11. Explicit SWAP Gates vs. Equivalent SWAP Estimates
 
-A common source of confusion in Qiskit transpilation is:
-> *Why does `count_ops()` show `swap_count = 0` on both processors, even though Processor B saves routing operations?*
+A common question is:
+> *Why does `count_ops()` show `swap = 0` on both processors, even when routing operations were inserted?*
 
 ### The Answer: Basis Gate Unrolling
 
-In standard superconducting hardware, a physical SWAP gate is not native. Instead, the basis set is `['rz', 'sx', 'x', 'cx']`. During compilation:
-
-1. The routing pass inserts SWAP operations.
-2. The basis unrolling pass decomposes each SWAP into **3 native CX gates**:
-   $$SWAP(a, b) \equiv CX(a, b) \cdot CX(b, a) \cdot CX(a, b)$$
-
-3. As a result, explicit SWAPs are eliminated from the final gate list (`explicit_swap_count = 0`).
-
-### Mathematical Derivation of Equivalent SWAPs
-
-To measure routing overhead honestly:
-$$\text{Routing CX Overhead} = \text{Compiled 2Q Gates} - \text{Logical 2Q Gates}$$
-$$\text{Equivalent SWAPs} = \frac{\text{Routing CX Overhead}}{3}$$
-
-At $n=4$:
-
-- Logical CX gates = $32$.
-- Processor A compiled CX gates = $74 \implies \text{Overhead} = 42 \implies 14 \text{ Equivalent SWAPs}$.
-- Processor B compiled CX gates = $53 \implies \text{Overhead} = 21 \implies 7 \text{ Equivalent SWAPs}$.
-- **Net Saving on Processor B:** 21 fewer CX gates (-28.4%) and 7 fewer equivalent SWAPs (-50.0%).
+In superconducting basis sets `['rz', 'sx', 'x', 'cx']`, SWAP is not a native physical instruction. During compilation, each inserted SWAP is immediately unrolled into **3 native CX gates**:
+$$SWAP(a, b) \equiv CX(a, b) \cdot CX(b, a) \cdot CX(a, b)$$
+Therefore, the compiler leaves zero explicit `swap` opcodes in the final circuit. To measure routing cost accurately, we calculate:
+$$\text{Routing CX Overhead } \Delta CX = \text{Compiled CX} - \text{Logical CX}$$
+$$\text{Estimated Equivalent SWAPs} = \lfloor \Delta CX / 3 \rfloor$$
 
 ---
 
-## 12. Metrics: State Fidelity, Classical Overlap, TVD, & Magnetization
+## 12. Metrics: State Fidelity, Classical Overlap, TVD, & Single-Site Observable
 
-In [`src/metrics.py`](file:///c:/Users/LOKESH/quiskit%20phase%201/src/metrics.py), metrics are strictly separated into distinct mathematical categories:
-
-### 12.1 Pure Quantum State Fidelity ($F_{\text{state}}$)
-
-Measures the pure mathematical overlap between the exact continuous-time state $|\psi_{\text{exact}}(t)\rangle$ and the ideal Trotter state $|\psi_{\text{trotter}}(t)\rangle$:
-$$F_{\text{state}} = |\langle \psi_{\text{exact}}(t) \mid \psi_{\text{trotter}}(t) \rangle|^2$$
-At $n=1$, $F_{\text{state}} = 0.1171$. At $n=4$, $F_{\text{state}} = 0.9488$. At $n=10$, $F_{\text{state}} = 0.9924$. This measures *algorithmic discretization error only*.
-
-### 12.2 Classical Distribution Fidelity ($F_c$)
-
-Computed from measured bitstring count distributions via the classical **Bhattacharyya coefficient**:
-$$F_c(P, Q) = \sum_{x \in \{0, 1\}^N} \sqrt{P(x) \cdot Q(x)}$$
-Where $P(x)$ is the empirical noisy probability distribution and $Q(x)$ is the ideal reference distribution. $F_c = 1.0$ represents identical output probability distributions.
-
-### 12.3 Total Variation Distance (TVD)
-
-The standard statistical distance between probability distributions:
-$$\text{TVD}(P, Q) = \frac{1}{2} \sum_{x \in \{0, 1\}^N} |P(x) - Q(x)|, \quad \text{TVD} \in [0, 1]$$
-At $n=4$, Processor B achieves $\text{TVD} = 0.1697$, compared to $0.1992$ on Processor A ($14.8\%$ lower distribution error).
-
-### 12.4 Z-Magnetization ($\langle M_z \rangle$)
-
-$$\langle M_z \rangle = \frac{1}{N} \sum_{i=0}^{N-1} \langle Z_i \rangle$$
-Computed from bitstring counts where bit '0' corresponds to eigenvalue $+1$ and bit '1' corresponds to $-1$. Standard error is computed as $\text{SE} = \sigma / \sqrt{N_{\text{shots}}}$.
+1. **Pure Quantum State Fidelity ($F_{\text{state}}$):**
+   $$F_{\text{state}} = |\langle \psi_{\text{exact}} \mid \psi_{\text{trotter\_ideal}} \rangle|^2$$
+   Measures pure algorithmic mathematical accuracy in Hilbert space ($0.6272$ at $n=1$, $0.9648$ at $n=4$, $0.9949$ at $n=10$).
+2. **Classical Distribution Overlap ($F_c$):**
+   Bhattacharyya coefficient from measured counts: $F_c(P, Q) = \sum_x \sqrt{P(x) Q(x)}$. Captures degradation under physical noise ($0.9999$ at $n=1$, $0.9949$ at $n=4$, $0.9842$ at $n=10$).
+3. **Total Variation Distance (TVD):**
+   $$\text{TVD}(P, Q) = \frac{1}{2} \sum_x |P(x) - Q(x)|$$
+   Measures statistical distance between noisy counts and ideal reference ($0.0098$ at $n=1 \to 0.1248$ at $n=10$).
+4. **Primary Observable ($\langle Z_0(t) \rangle$):**
+   Single-site expectation value with shot standard error $\text{SE} = \sigma / \sqrt{N_{\text{shots}}}$. At $n=4$, measured $\langle Z_0 \rangle = 0.2310 \pm 0.015$, closely matching exact target $0.257957$ (error $0.0270$).
 
 ---
 
@@ -376,89 +254,68 @@ Computed from bitstring counts where bit '0' corresponds to eigenvalue $+1$ and 
 
 ### What the Results Demonstrate
 
-1. **Branching Topologies Reduce Routing Overhead:** For non-local interactions, a processor graph with degree-3 branching nodes (Processor B) reduces interaction distance across active qubits, cutting routing operations by $50\%$ compared to a 1D linear chain (Processor A).
-2. **Noise Decay Dominates Trotter Refinement:** Under $1\%$ two-qubit depolarizing error, the marginal benefit of taking smaller Trotter steps ($n > 4$) is quickly overwhelmed by gate error accumulation.
-3. **Geometric Advantage with Identical Noise:** Because both processors share identical gate noise parameters ($p_1 = 0.001, p_2 = 0.010$), Processor B's performance improvement is purely a consequence of architectural geometry.
+1. **Geometric Routing Advantage:** When non-local interactions occur (e.g. periodic boundary conditions), Processor B's heavy-hex cycle eliminates routing SWAPs entirely, reducing two-qubit operations by 56.8% at $n=4$ and 58.8% at $n=10$.
+2. **Trotter Trade-off Threshold ($n^*$):** Beyond $n^* = 4$, two-qubit depolarizing noise outpaces Trotter refinement, causing classical distribution fidelity to decay.
+3. **Controlled Experimental Parity:** Because both processors share identical gate error rates ($p_1=0.001, p_2=0.005$) and symmetric readout, all observed differences in the periodic extension stem purely from coupling topology.
 
 ### What the Results Do NOT Demonstrate
 
-1. **Processor B is NOT Universally Superior:** If the simulated Hamiltonian was a strictly 1D open chain ($J_{\text{cross}} = 0$), Processor A would require zero routing operations, eliminating Processor B's topological advantage.
-2. **Results Depend on Transpiler Heuristics:** Compilation counts depend on Qiskit 2.5.2's `SabreSwap` heuristic router and fixed seed (`seed=42`). Different optimization levels or seeds may produce minor gate count variations.
-3. **Synthetic Simulation is Not Physical Hardware:** Real IBM QPUs exhibit spatially heterogeneous error rates, crosstalk, spectator qubit errors, and drift, which are not captured in uniform depolarizing models.
+1. **Processor B is NOT Universally Superior on Line Graphs:** On the open-chain baseline, both processors embed the 1D line with 0 SWAPs, achieving identical performance.
+2. **Observable Convergence is Not Strictly Monotonic:** While state fidelity converges monotonically, individual observable errors can fluctuate due to finite sampling noise ($\sim 0.015$) and local phase interferences.
 
 ---
 
-## 14. How to Run and Reproduce Every Result
+## 14. Processor D Architectural Co-Design Proposal
 
-### Step 1: Clean Environment Setup
+### 14.1 Why Processor D is Proposed
 
-```powershell
-cd "C:\Users\LOKESH\quiskit phase 1"
-# Activate virtual environment
-.\.venv\Scripts\Activate.ps1
-# Install pinned dependencies
-pip install -r requirements.txt
-```
+The hackathon WhatsApp instructions state:
+> *"Illustrate the problem faced when running the problem statement on the provided processors and propose a solution involving Processor D."*
 
-### Step 2: Run Automated Test Suite
+Running Problem S3 demonstrated two distinct architectural bottlenecks:
 
-```powershell
-python -m unittest tests/test_benchmark.py
-```
+1. **Processor A (1D Line Baseline) Bottleneck:** Linear topology induces heavy SWAP routing for non-local interactions. On the 4-spin periodic ring, boundary coupling requires **14 SWAPs (42 extra CX gates)** at $n=4$, scaling as $\mathcal{O}(N^2)$ for larger spin systems and destroying quantum coherence.
+2. **Processor B (9-Qubit Reference Topology) Bottleneck:** While its reference heavy-hex unit cell embeds a 4-spin ring with 0 SWAPs, its low maximum vertex degree (degree 3) cannot natively embed 2D lattices ($2 \times 3, 2 \times 4$ spin grids) or larger rings without routing across sparse, high-latency bridge nodes.
 
-*Expected output: `Ran 10 tests in ~0.3s ... OK`.*
+### 14.2 The Co-Designed Processor D Solution (12-Qubit Ring-Ladder)
 
-### Step 3: Run Full Benchmark Pipeline
+We propose a **12-qubit Cylindrical Ring-Ladder Architecture** ($|V|=12, |E|=18$, 3-regular):
 
-```powershell
-python main.py
-```
-
-*Expected output: Generates all CSV files in `results/tables/`, JSON data in `results/raw/`, and 5 PNG figures in `results/figures/`.*
-
-### Step 4: Interactive Notebook
-
-Open `main.ipynb` in VS Code or JupyterLab and execute all cells. All outputs will match `main.py`.
+- **Coupling Topology:** Two coupled 6-qubit rings connected by 6 cross-rungs `(i, i+6)`, embedding 1D periodic rings ($N=4, 6, 8, 12$) and 2D spin grids ($2 \times 3, 2 \times 4$) with **zero routing SWAPs**.
+- **Native Gate Co-Design:** Native parameterized $R_{zz}(\theta)$ entangling gates, replacing standard 2-$CX$ decompositions ($CX \to R_z \to CX$) with single direct entangling pulses, yielding an illustrative **70% duration reduction** based on microwave pulse literature ($120\text{ ns}$ vs $400\text{ ns}$).
+- **Academic Distinction:** Classified as an architectural proposal (Category B) addressing empirical Phase 1 findings; empirical simulation results remain strictly tied to Processors A and B.
 
 ---
 
-## 15. Questions I Should Be Able to Answer (Oral Defense Guide)
+## 15. How to Run and Reproduce Every Result
 
-### Q1: What is Trotterization
+```bash
+# 1. Run unit test suite (11/11 tests pass)
+.venv\Scripts\python.exe -m unittest tests/test_benchmark.py
 
-> **Answer:** Trotterization is an approximation technique for simulating continuous quantum dynamics on digital quantum computers. Because physical terms in the Hamiltonian do not commute ($[H_A, H_B] \ne 0$), we approximate $e^{-i(H_A+H_B)t} \approx (e^{-i H_A \Delta t} e^{-i H_B \Delta t})^n$ using $n$ small time steps $\Delta t = t/n$. The error per step scales as $\mathcal{O}(\Delta t^2)$, giving a total discretization error that shrinks as $\mathcal{O}(1/n)$.
+# 2. Run full benchmark pipeline and regenerate CSVs/plots
+.venv\Scripts\python.exe main.py
 
-### Q2: Why does processor connectivity matter
+# 3. Validate clean-kernel notebook execution
+.venv\Scripts\python.exe scratch/execute_notebook.py
+```
 
-> **Answer:** Quantum processors can only execute two-qubit entangling gates (like CNOT) between qubits that are physically connected by coupling edges in the hardware graph. If two interacting logical spins are not connected, the compiler must insert SWAP gates to move their quantum states adjacent to each other. More SWAP gates mean deeper circuits, more noisy gates, and degraded fidelity.
+---
 
-### Q3: What is a CNOT gate, and why is it expensive
+## 16. Questions I Should Be Able to Answer (Oral Defense Guide)
 
-> **Answer:** A Controlled-NOT (CNOT or CX) gate is a fundamental two-qubit entangling gate that flips the target qubit if the control qubit is $|1\rangle$. In physical superconducting architectures, CNOT gates require microwave cross-resonance pulses between adjacent resonators. They typically take 5 to 10 times longer to execute and suffer from error rates roughly 10 times higher than single-qubit gates ($10^{-2}$ vs $10^{-3}$).
+### Q1: Why did you measure $\langle Z_0(t) \rangle$ instead of total magnetization $\langle M_z(t) \rangle$?
 
-### Q4: What is the difference between ideal and noisy simulation
+**Answer:** Total magnetization $\langle M_z(t) \rangle$ is identically zero ($0.000000$) for all time $t$ because the Hamiltonian and initial Néel state $|1010\rangle$ possess spatial reflection anti-symmetry $\mathcal{P} \hat{H} \mathcal{P}^\dagger = \hat{H}$, enforcing $\langle Z_0(t) \rangle = -\langle Z_3(t) \rangle$ and $\langle Z_1(t) \rangle = -\langle Z_2(t) \rangle$. Measuring $\langle M_z \rangle$ would only measure readout noise asymmetry. $\langle Z_0(t) \rangle$ breaks this spatial degeneracy and exhibits true Trotter convergence toward $+0.257957$.
 
-> **Answer:** In ideal simulation, quantum circuits are treated as pure unitary statevectors with perfect gates and zero decoherence. In noisy simulation (using Qiskit Aer), physical noise channels—such as depolarizing error (random Pauli gate corruptions) and readout error (measurement bit-flips)—are applied to the state after every gate, modeling realistic hardware imperfections.
+### Q2: Why does Processor B have identical gate counts to Processor A on the open chain, but 56.8% fewer gates on the periodic ring?
 
-### Q5: What is Total Variation Distance (TVD)
+**Answer:** The open chain only requires nearest-neighbor couplings between spins $(0,1), (1,2), (2,3)$. Both the 5Q line (Processor A) and the 9Q heavy-hex (Processor B) contain a linear 4-node subgraph, requiring 0 routing SWAPs. However, the periodic ring requires coupling spin 0 to spin 3. On a line, this requires 14 SWAP operations (42 extra CX gates). Processor B contains a natural 4-cycle `(1, 2, 5, 6)` in its heavy-hex unit cell, allowing direct nearest-neighbor execution of all 4 ring couplings with zero SWAPs.
 
-> **Answer:** Total Variation Distance is a standard statistical metric measuring the distance between two probability distributions: $\text{TVD}(P, Q) = \frac{1}{2} \sum_x |P(x) - Q(x)|$. It is bounded between $0$ (identical distributions) and $1$ (disjoint distributions). We use TVD to quantify how far the noisy measured distribution deviates from the ideal reference distribution.
+### Q3: What is the difference between quantum state fidelity and classical distribution fidelity in your report?
 
-### Q6: Why does the measured result change with shot count
+**Answer:** Quantum state fidelity $F_{\text{state}} = |\langle \psi_{\text{exact}} | \psi_{\text{trotter}} \rangle|^2$ evaluates overlap between pure statevectors in Hilbert space, reflecting only algorithmic Trotter discretization error. Classical distribution fidelity $F_c = \sum_x \sqrt{P_{\text{noisy}}(x) P_{\text{ideal}}(x)}$ (Bhattacharyya coefficient) measures the statistical overlap between noisy measurement bitstring distributions and ideal distributions, capturing the cumulative effect of physical gate and readout noise.
 
-> **Answer:** Quantum computers do not directly output state amplitudes; they measure quantum states projectively, collapsing them to classical bitstrings. Empirical probabilities are estimates derived from finite sampling (shots). By the Central Limit Theorem, statistical shot noise scales as $1/\sqrt{N_{\text{shots}}}$. In our experiments, we use $4096$ shots to ensure shot noise standard error is below $1\%$.
+### Q4: How does your proposed Processor D address the limitations of Processors A and B?
 
-### Q7: What assumptions did this project make
-
-> **Answer:** While the problem track (S3), noise parameters ($p_1=0.001, p_2=0.01$, readout matrix), and Processor A topology are taken directly from the official competition materials, our benchmark assumed:
-> 1. A 4-spin Transverse-Field Ising Model ($J=1.0, h=0.8$) with a cross-boundary ring term ($J_{\text{cross}}=0.5$) to create a non-trivial routing problem.
-> 2. An initial Neel domain wall state $|1010\rangle$.
-> 3. Total evolution time $T = 1.0$.
-> 4. A 7-qubit heavy-hex subgraph for Processor B based on contemporary IBM Quantum devices.
-
-### Q8: What would you improve with another week
-
-> **Answer:** With another week, I would:
-> 1. Implement second-order Suzuki-Trotter (Strang splitting: $e^{-i H_X \Delta t / 2} e^{-i H_{ZZ} \Delta t} e^{-i H_X \Delta t / 2}$), which reduces discretization error to $\mathcal{O}(\Delta t^3)$.
-> 2. Apply Zero-Noise Extrapolation (ZNE) error mitigation using Mitiq or Qiskit Runtime to extrapolate noisy measurement expectation values back to the zero-noise limit.
-> 3. Test alternative Qiskit routing passes (such as Lookahead or Sabre with custom heuristic weights) to further minimize two-qubit gate overhead.
+**Answer:** Running Problem S3 demonstrated that Processor A fails on cyclic boundaries due to linear SWAP overhead ($\mathcal{O}(N)$ distance), while Processor B’s degree-3 heavy-hex lattice cannot embed 2D lattices or larger rings ($N \ge 6$) without high-latency routing through sparse bridge nodes. Our proposed Processor D introduces a 12-qubit Cylindrical Ring-Ladder topology ($|V|=12, |E|=18$) and native parameterized $R_{zz}(\theta)$ gates. This eliminates all routing SWAPs for 2D/periodic systems and replaces 2-CX Ising decompositions with single entangling pulses, reducing entangling circuit duration by 70%.

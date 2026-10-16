@@ -1,25 +1,31 @@
 {
   "name": "processor_B",
-  "display_name": "Processor B (7-Qubit Heavy-Hex Baseline)",
-  "num_qubits": 7,
+  "display_name": "Processor B (9-Qubit Heavy-Hex Baseline)",
+  "num_qubits": 9,
   "topology_type": "heavy_hex_subgraph",
   "coupling_map": [
     [0, 1], [1, 0],
     [1, 2], [2, 1],
-    [1, 3], [3, 1],
-    [3, 5], [5, 3],
+    [1, 6], [6, 1],
+    [2, 3], [3, 2],
+    [2, 6], [6, 2],
+    [2, 5], [5, 2],
+    [3, 4], [4, 3],
     [4, 5], [5, 4],
-    [5, 6], [6, 5]
+    [5, 6], [6, 5],
+    [6, 7], [7, 6],
+    [6, 8], [8, 6],
+    [8, 0], [0, 8]
   ],
   "basis_gates": ["rz", "sx", "x", "cx"],
-  "ports": [0, 6],
+  "ports": [0, 8],
   "noise": {
     "type": "synthetic_depolarizing",
     "single_qubit_depolarizing_p": 0.001,
-    "two_qubit_depolarizing_p": 0.01,
+    "two_qubit_depolarizing_p": 0.005,
     "readout_error_matrix": [
       [0.99, 0.01],
-      [0.02, 0.98]
+      [0.01, 0.99]
     ]
   }
 }

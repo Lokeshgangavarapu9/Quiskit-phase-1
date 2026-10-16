@@ -21,16 +21,25 @@ def plot_processor_topology(
     for u, v in config["coupling_map"]:
         g.add_edge(u, v)
 
-    plt.figure(figsize=(7, 5), dpi=300)
+    plt.figure(figsize=(7.5, 5.5), dpi=300)
     
     # Custom layout
     if config.get("topology_type") == "linear_chain":
-        pos = {i: (i, 0) for i in range(num_q)}
+        pos = {i: (i, 0.0) for i in range(num_q)}
+    elif config.get("topology_type") == "heavy_hex_subgraph" and num_q == 9:
+        # 9-qubit heavy-hex reference layout matching the 12-edge unit cell
+        pos = {
+            0: (-1.5, 1.2),
+            1: (-0.5, 1.8),
+            2: (1.2, 1.4),
+            3: (2.4, 0.8),
+            4: (2.2, -0.6),
+            5: (1.0, -0.6),
+            6: (0.0, 0.2),
+            7: (0.0, -1.5),
+            8: (-1.5, -0.5),
+        }
     elif config.get("topology_type") == "heavy_hex_subgraph":
-        # Layout for 7-qubit heavy-hex subgraph:
-        # 0: (0, 1), 1: (1, 1), 2: (2, 1)
-        # 3: (1, 0)
-        # 4: (0, -1), 5: (1, -1), 6: (2, -1)
         pos = {
             0: (0.0, 1.0),
             1: (1.0, 1.0),
@@ -81,7 +90,7 @@ def plot_logical_vs_transpiled(
     # Circuit Depth
     ax1.plot(step_counts, logical_depths, "k--o", label="Logical Circuit", linewidth=2.0)
     ax1.plot(step_counts, depths_a, "b-s", label="Processor A (5Q Line)", linewidth=2.2)
-    ax1.plot(step_counts, depths_b, "r-^", label="Processor B (7Q Heavy-Hex)", linewidth=2.2)
+    ax1.plot(step_counts, depths_b, "r-^", label="Processor B (9Q Heavy-Hex)", linewidth=2.2)
     ax1.set_xlabel("Trotter Steps (n)", fontsize=12, fontweight="bold")
     ax1.set_ylabel("Circuit Depth", fontsize=12, fontweight="bold")
     ax1.set_title("Circuit Depth Scaling", fontsize=13, fontweight="bold")
@@ -91,7 +100,7 @@ def plot_logical_vs_transpiled(
     # 2Q Gates
     ax2.plot(step_counts, logical_2q, "k--o", label="Logical Circuit", linewidth=2.0)
     ax2.plot(step_counts, two_q_a, "b-s", label="Processor A (5Q Line)", linewidth=2.2)
-    ax2.plot(step_counts, two_q_b, "r-^", label="Processor B (7Q Heavy-Hex)", linewidth=2.2)
+    ax2.plot(step_counts, two_q_b, "r-^", label="Processor B (9Q Heavy-Hex)", linewidth=2.2)
     ax2.set_xlabel("Trotter Steps (n)", fontsize=12, fontweight="bold")
     ax2.set_ylabel("Two-Qubit (CX) Gates", fontsize=12, fontweight="bold")
     ax2.set_title("Two-Qubit Operation Overhead", fontsize=13, fontweight="bold")
@@ -116,14 +125,14 @@ def plot_ab_performance(
     """Plot Trotter fidelity trade-off: Algorithmic Error vs. Hardware Noise."""
     plt.figure(figsize=(10, 6), dpi=300)
 
-    plt.axhline(1.0, color="gray", linestyle=":", label="Exact Unitary Target (F=1.0)", linewidth=1.5)
-    plt.plot(steps, ideal_trotter_fidelity, "g--o", label="Ideal Trotter Discretization ($F_{state} = |\\langle\\psi_{exact}|\\psi_{trotter}\\rangle|^2$)", linewidth=2.2)
-    plt.plot(steps, noisy_fidelity_a, "b-s", label="Processor A (Noisy Sim — Classical Dist Fidelity $F_c$)", linewidth=2.5)
-    plt.plot(steps, noisy_fidelity_b, "r-^", label="Processor B (Noisy Sim — Classical Dist Fidelity $F_c$)", linewidth=2.5)
+    plt.axhline(1.0, color="gray", linestyle=":", label="Exact Continuum Target ($F=1.0$)", linewidth=1.5)
+    plt.plot(steps, ideal_trotter_fidelity, "g--o", label="Algorithmic Pure-State Fidelity ($F_{state} = |\\langle\\psi_{exact}|\\psi_{trotter}\\rangle|^2$)", linewidth=2.2)
+    plt.plot(steps, noisy_fidelity_a, "b-s", label="Processor A (Noisy Sim — Classical Dist Overlap $F_c$)", linewidth=2.5)
+    plt.plot(steps, noisy_fidelity_b, "r-^", label="Processor B (Noisy Sim — Classical Dist Overlap $F_c$)", linewidth=2.5)
 
     plt.xlabel("Number of Trotter Steps (n)", fontsize=12, fontweight="bold")
-    plt.ylabel("Fidelity Metric ($F_{state}$ & $F_c$)", fontsize=12, fontweight="bold")
-    plt.title("Trotter Simulation Fidelity: Discretization vs. Noise Decay\\n(Demonstrating Optimal Trotter Step n*)", fontsize=13, fontweight="bold", pad=12)
+    plt.ylabel("Fidelity / Distribution Overlap ($F_{state}$ & $F_c$)", fontsize=12, fontweight="bold")
+    plt.title("Trotter Simulation Fidelity: Discretization vs. Noise Accumulation\n(Demonstrating Optimal Trotter Step Threshold)", fontsize=13, fontweight="bold", pad=12)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(frameon=True, fontsize=10, loc="lower left")
 
@@ -155,25 +164,37 @@ def plot_architecture_tradeoffs(
     axs[0, 0].grid(True, linestyle="--", alpha=0.5)
     axs[0, 0].legend()
 
-    # 2. Routing CX Overhead (decomposed SWAPs)
-    routing_a = [r["two_q_gates_a"] - r["logical_2q_gates"] for r in results_a]
-    routing_b = [r["two_q_gates_b"] - r["logical_2q_gates"] for r in results_b]
+    # 2. Routing CX Overhead
+    routing_a = [r["routing_cx_overhead_a"] for r in results_a]
+    routing_b = [r["routing_cx_overhead_b"] for r in results_b]
     axs[0, 1].bar([s - 0.15 for s in steps], routing_a, width=0.3, color="#4A90E2", label="Processor A (Line) Routing CX")
     axs[0, 1].bar([s + 0.15 for s in steps], routing_b, width=0.3, color="#E74C3C", label="Processor B (Heavy-Hex) Routing CX")
     axs[0, 1].set_xlabel("Trotter Steps (n)", fontsize=11, fontweight="bold")
-    axs[0, 1].set_ylabel("Routing CX Overhead Added", fontsize=11, fontweight="bold")
-    axs[0, 1].set_title("(b) Architecture Routing CX Overhead", fontsize=12, fontweight="bold")
+    axs[0, 1].set_ylabel("Routing CX Overhead (ΔCX)", fontsize=11, fontweight="bold")
+    axs[0, 1].set_title("(b) Architecture Routing CX Overhead (Compiled - Logical)", fontsize=12, fontweight="bold")
     axs[0, 1].grid(True, linestyle="--", alpha=0.5)
     axs[0, 1].legend()
 
-    # 3. Magnetization Error
-    mag_err_a = [abs(r["mag_a"] - r["exact_mag"]) for r in results_a]
-    mag_err_b = [abs(r["mag_b"] - r["exact_mag"]) for r in results_b]
-    axs[1, 0].plot(steps, mag_err_a, "b-s", label="|⟨M_z⟩_A - ⟨M_z⟩_exact|", linewidth=2.2)
-    axs[1, 0].plot(steps, mag_err_b, "r-^", label="|⟨M_z⟩_B - ⟨M_z⟩_exact|", linewidth=2.2)
+    # 3. Single-Site Observable Error
+    # Use z0_error if available, fallback to mag_error
+    if "z0_error_a" in results_a[0]:
+        err_a = [r["z0_error_a"] for r in results_a]
+        err_b = [r["z0_error_b"] for r in results_b]
+        err_label_a = "|⟨Z₀⟩_A - ⟨Z₀⟩_exact|"
+        err_label_b = "|⟨Z₀⟩_B - ⟨Z₀⟩_exact|"
+        title_c = "(c) Primary Observable Error |⟨Z₀⟩_measured - ⟨Z₀⟩_exact|"
+    else:
+        err_a = [abs(r["mag_a"] - r["exact_mag"]) for r in results_a]
+        err_b = [abs(r["mag_b"] - r["exact_mag"]) for r in results_b]
+        err_label_a = "|⟨M_z⟩_A - ⟨M_z⟩_exact|"
+        err_label_b = "|⟨M_z⟩_B - ⟨M_z⟩_exact|"
+        title_c = "(c) Physical Observable Error"
+
+    axs[1, 0].plot(steps, err_a, "b-s", label=err_label_a, linewidth=2.2)
+    axs[1, 0].plot(steps, err_b, "r-^", label=err_label_b, linewidth=2.2)
     axs[1, 0].set_xlabel("Trotter Steps (n)", fontsize=11, fontweight="bold")
-    axs[1, 0].set_ylabel("Absolute Magnetization Error", fontsize=11, fontweight="bold")
-    axs[1, 0].set_title("(c) Physical Observable Error", fontsize=12, fontweight="bold")
+    axs[1, 0].set_ylabel("Absolute Observable Error", fontsize=11, fontweight="bold")
+    axs[1, 0].set_title(title_c, fontsize=12, fontweight="bold")
     axs[1, 0].grid(True, linestyle="--", alpha=0.5)
     axs[1, 0].legend()
 

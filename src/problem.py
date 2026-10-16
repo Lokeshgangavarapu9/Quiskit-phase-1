@@ -1,6 +1,7 @@
 """
 Problem S3: Noise in Trotter Simulation
 Hamiltonian formulation, exact statevector dynamics, and Trotterized circuit construction.
+Supports both official open-chain baseline (J_cross=0.0) and periodic routing extension (J_cross=0.5).
 """
 
 import numpy as np
@@ -20,7 +21,9 @@ class TrotterSimulationModel:
         num_spins: Number of physical spins in the simulation (default: 4)
         J: Nearest-neighbor ZZ interaction coupling constant (default: 1.0)
         h: Transverse magnetic field in X basis (default: 0.8)
-        J_cross: Cross-boundary ZZ coupling (0.0 for open chain, >0 for ring/routing study)
+        boundary: Boundary condition - "open" (official baseline, J_cross=0.0)
+                  or "periodic" (routing stress extension, J_cross=0.5)
+        J_cross: Cross-boundary ZZ coupling (overridden to 0.0 if boundary="open")
         initial_state_str: Initial spin configuration bitstring (default: '1010')
     """
 
@@ -29,13 +32,22 @@ class TrotterSimulationModel:
         num_spins: int = 4,
         J: float = 1.0,
         h: float = 0.8,
-        J_cross: float = 0.5,
+        boundary: str = "open",
+        J_cross: Optional[float] = None,
         initial_state_str: str = "1010"
     ):
         self.num_spins = num_spins
         self.J = J
         self.h = h
-        self.J_cross = J_cross
+        self.boundary = boundary.lower()
+
+        if self.boundary == "open":
+            self.J_cross = 0.0
+        elif self.boundary == "periodic":
+            self.J_cross = 0.5 if J_cross is None else J_cross
+        else:
+            self.J_cross = J_cross if J_cross is not None else 0.0
+
         self.initial_state_str = initial_state_str
 
         # Build Pauli operator representation
@@ -44,21 +56,21 @@ class TrotterSimulationModel:
 
     def _build_hamiltonian_pauli(self) -> SparsePauliOp:
         pauli_list = []
-        # Nearest-neighbor ZZ terms
+        # Nearest-neighbor ZZ terms ('IIZZ', 'IZZI', 'ZZII' in Qiskit little-endian)
         for i in range(self.num_spins - 1):
             z_term = ["I"] * self.num_spins
             z_term[i] = "Z"
             z_term[i + 1] = "Z"
             pauli_list.append(("".join(reversed(z_term)), -self.J))
 
-        # Cross coupling (boundary condition forcing non-local routing across processor graph)
+        # Cross coupling (boundary condition for routing study if periodic)
         if self.J_cross != 0.0 and self.num_spins > 2:
             z_cross = ["I"] * self.num_spins
             z_cross[0] = "Z"
             z_cross[self.num_spins - 1] = "Z"
             pauli_list.append(("".join(reversed(z_cross)), -self.J_cross))
 
-        # Transverse X magnetic field terms
+        # Transverse X magnetic field terms ('IIIX', 'IIXI', 'IXII', 'XIII')
         for i in range(self.num_spins):
             x_term = ["I"] * self.num_spins
             x_term[i] = "X"
@@ -71,14 +83,30 @@ class TrotterSimulationModel:
         return Statevector.from_label(self.initial_state_str)
 
     def compute_exact_statevector(self, t: float) -> Statevector:
-        """Exact unitary evolution |psi(t)> = exp(-i H t) |psi(0)>."""
+        """Exact unitary evolution |psi(t)> = exp(-i H t) |psi(0)> via SciPy Padé matrix exponential."""
         u_matrix = scipy.linalg.expm(-1j * self.hamiltonian_matrix * t)
         psi0 = self.get_initial_statevector().data
         psi_t = u_matrix @ psi0
         return Statevector(psi_t)
 
+    def compute_exact_single_site_z(self, t: float, site: int = 0) -> float:
+        """
+        Compute exact single-site expectation value <Z_site(t)> = <psi(t)| Z_site |psi(t)>.
+        This satisfies the authoritative Master Guide PS-S2 / PS-S3 requirement.
+        """
+        if site < 0 or site >= self.num_spins:
+            raise ValueError(f"Site index {site} out of bounds for {self.num_spins} spins.")
+        psi_t = self.compute_exact_statevector(t)
+        z_term = ["I"] * self.num_spins
+        z_term[site] = "Z"
+        op = SparsePauliOp.from_list([("".join(reversed(z_term)), 1.0)])
+        return float(psi_t.expectation_value(op).real)
+
     def compute_exact_magnetization(self, t: float) -> float:
-        """Compute exact expectation value <M_z(t)> = 1/N sum_i <Z_i(t)>."""
+        """
+        Compute exact average magnetization <M_z(t)> = 1/N sum_i <Z_i(t)>.
+        Maintained as a secondary physical symmetry diagnostic.
+        """
         psi_t = self.compute_exact_statevector(t)
         total_z = 0.0
         for i in range(self.num_spins):
@@ -132,7 +160,7 @@ class TrotterSimulationModel:
                 qc.rz(-2.0 * self.J * dt, i + 1)
                 qc.cx(i, i + 1)
 
-            # Cross-boundary ZZ interaction (if applicable)
+            # Cross-boundary ZZ interaction (only if periodic extension is selected)
             if self.J_cross != 0.0 and self.num_spins > 2:
                 qc.cx(0, self.num_spins - 1)
                 qc.rz(-2.0 * self.J_cross * dt, self.num_spins - 1)
